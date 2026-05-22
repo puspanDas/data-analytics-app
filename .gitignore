@@ -1,0 +1,34 @@
+# --- Git Automation Script (exclude itself) ---
+git_push.py
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# --- Virtual Environment ---
+venv/
+env/
+.venv/
+
+# --- Uploads (user data files) ---
+uploads/
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS Files ---
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# --- Byte-compiled ---
+*.pyc

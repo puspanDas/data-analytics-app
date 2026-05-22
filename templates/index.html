@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoML Web UI</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Plotly.js CDN for BI Dashboard (Updated to a recent explicit version) -->
+    <script src="https://cdn.plot.ly/plotly-2.33.0.min.js"></script>
+    <style>
+        /* Custom styles */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for column lists */
+        .column-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .tab-active {
+            border-bottom-color: #3b82f6; /* blue-500 */
+            color: #3b82f6;
+        }
+        .tab-inactive {
+            border-bottom-color: transparent;
+            color: #6b7280; /* gray-500 */
+        }
+        /* Custom styles for Plotly charts */
+        #bi-chart-container .plotly .main-svg {
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+        <!-- Header -->
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-gray-800">AutoML Analysis & Prediction UI</h1>
+            <p class="text-lg text-gray-600">Upload your data to visualize, train models, and get predictions.</p>
+        </header>
+
+        <!-- Error/Success Message Popup -->
+        <div id="message-popup" class="hidden fixed top-5 right-5 z-50 p-4 rounded-lg shadow-lg max-w-sm">
+            <button id="close-message" class="absolute top-2 right-2 text-gray-600 hover:text-gray-900">&times;</button>
+            <p id="message-text"></p>
+        </div>
+
+        <!-- Section 1: Upload -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">1. Upload Your Data</h2>
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="flex flex-col md:flex-row md:items-center">
+                    <input type="file" id="file-input" name="file" class="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100" accept=".csv, .xlsx, .xls">
+                    <button type="submit" id="upload-button" class="mt-4 md:mt-0 md:ml-4 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition duration-200">
+                        Upload and Analyze
+                    </button>
+                    <!-- Global Loading Spinner -->
+                    <div id="global-loader" class="hidden ml-4">
+                        <div class="w-6 h-6 border-4 border-blue-500 border-t-transparent border-solid rounded-full animate-spin"></div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Main Content Area (Hidden by default) -->
+        <main id="main-content" class="hidden">
+            <!-- Tab Navigation -->
+            <div class="mb-6 border-b border-gray-300">
+                <nav class="flex -mb-px space-x-6" id="main-tabs">
+                    <button data-tab="data-overview-section" class="tab-link whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm tab-active">Data Overview</button>
+                    <button data-tab="bi-dashboard-section" class="tab-link whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm tab-inactive">BI Dashboard</button>
+                    <button data-tab="visualization-section" class="tab-link whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm tab-inactive">Visualization</button>
+                    <button data-tab="training-section" class="tab-link whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm tab-inactive">Model Training</button>
+                    <button data-tab="comparison-section" class="tab-link whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm tab-inactive">Model Comparison</button>
+                    <button data-tab="prediction-section" class="tab-link whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm tab-inactive">Make Prediction</button>
+                </nav>
+            </div>
+
+            <!-- Section 2: Data Overview -->
+            <div id="data-overview-section" class="main-section bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">Data Overview</h2>
+                <div id="data-info-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-600">File Info</h3>
+                        <p id="file-shape" class="text-sm"></p>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-600">Row Quality</h3>
+                        <p id="row-quality" class="text-sm"></p>
+                    </div>
+                    <div class="md:col-span-2">
+                        <h3 class="text-lg font-semibold text-gray-600">Columns</h3>
+                        <ul id="column-list" class="text-sm list-disc list-inside"></ul>
+                    </div>
+                    <div class="md:col-span-2">
+                        <h3 class="text-lg font-semibold text-gray-600">First 5 Rows</h3>
+                        <div class="overflow-x-auto">
+                            <table id="data-head-table" class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr id="data-head-header"></tr>
+                                </thead>
+                                <tbody id="data-head-body" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- --- NEW --- Section 2.5: BI Dashboard -->
+            <div id="bi-dashboard-section" class="main-section hidden bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">BI Dashboard</h2>
+                <form id="bi-form">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- Dimensions -->
+                        <div>
+                            <label for="bi-dimensions" class="block text-sm font-medium text-gray-700">Dimensions (Group By)</label>
+                            <select id="bi-dimensions" name="bi-dimensions" multiple class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md h-32 column-list"></select>
+                            <p class="text-xs text-gray-500 mt-1">Select one or more categorical columns.</p>
+                        </div>
+                        
+                        <!-- Measures -->
+                        <div>
+                            <label for="bi-measures" class="block text-sm font-medium text-gray-700">Measures (Aggregate)</label>
+                            <select id="bi-measures" name="bi-measures" multiple class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md h-32 column-list"></select>
+                            <p class="text-xs text-gray-500 mt-1">Select one or more numeric columns.</p>
+                        </div>
+
+                        <!-- Aggregations (Dynamic) -->
+                        <div id="bi-aggregations-container" class="lg:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700">Measure Aggregations</label>
+                            <div id="bi-aggregations" class="mt-1 space-y-2">
+                                <p class="text-sm text-gray-500">Select measures to see aggregation options.</p>
+                            </div>
+                        </div>
+
+                        <!-- Time Dimension -->
+                        <div>
+                            <label for="bi-time-dimension" class="block text-sm font-medium text-gray-700">Time Dimension (Optional)</label>
+                            <select id="bi-time-dimension" name="bi-time-dimension" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                <option value="">None</option>
+                            </select>
+                        </div>
+
+                        <!-- Time Frequency (Hidden) -->
+                        <div id="bi-time-frequency-container" class="hidden">
+                            <label for="bi-time-frequency" class="block text-sm font-medium text-gray-700">Time Frequency</label>
+                            <select id="bi-time-frequency" name="bi-time-frequency" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                <option value="D">Daily</option>
+                                <option value="W">Weekly</option>
+                                <option value="M" selected>Monthly</option>
+                                <option value="Q">Quarterly</option>
+                                <option value="Y">Yearly</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <button type="submit" id="bi-generate-button" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75 transition duration-200">
+                            Generate Chart
+                        </button>
+                    </div>
+                </form>
+
+                <!-- BI Chart Container -->
+                <div class="mt-6">
+                    <div id="bi-loader" class="hidden flex justify-center items-center h-64">
+                        <div class="w-12 h-12 border-4 border-green-500 border-t-transparent border-solid rounded-full animate-spin"></div>
+                    </div>
+                    <div id="bi-chart-container" class="bg-gray-50 rounded-lg shadow-inner min-h-[400px]"></div>
+                    <div id="bi-error" class="hidden text-red-600 mt-4"></div>
+                </div>
+            </div>
+
+            <!-- Section 3: Visualization -->
+            <div id="visualization-section" class="main-section hidden bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">2. Create Visualizations</h2>
+                <form id="vis-form">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="plot-type" class="block text-sm font-medium text-gray-700">Plot Type</label>
+                            <select id="plot-type" name="plot-type" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                <option value="histogram">Histogram</option>
+                                <option value="scatter">Scatter Plot</option>
+                                <option value="boxplot">Box Plot</option>
+                                <option value="correlation">Correlation Matrix</option>
+                                <option value="pairplot">Pair Plot (Warning: Slow)</option>
+                                <option value="strip">Strip Plot</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="x-col" class="block text-sm font-medium text-gray-700">X-Axis Column</label>
+                            <select id="x-col" name="x-col" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
+                        </div>
+                        <div>
+                            <label for="y-col" class="block text-sm font-medium text-gray-700">Y-Axis Column</label>
+                            <select id="y-col" name="y-col" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button type="submit" id="plot-button" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75 transition duration-200">
+                            Generate Plot
+                        </button>
+                    </div>
+                </form>
+                <div class="mt-6">
+                    <div id="plot-loader" class="hidden flex justify-center items-center h-64">
+                        <div class="w-12 h-12 border-4 border-indigo-500 border-t-transparent border-solid rounded-full animate-spin"></div>
+                    </div>
+                    <div id="plot-container" class="flex justify-center"></div>
+                    <div id="plot-error" class="hidden text-red-600 mt-4"></div>
+                </div>
+            </div>
+
+            <!-- Section 4: Model Training -->
+            <div id="training-section" class="main-section hidden bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">3. Train a Model</h2>
+                <form id="train-form">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="target-column" class="block text-sm font-medium text-gray-700">Target Column (Y)</label>
+                            <select id="target-column" name="target-column" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
+                        </div>
+                        <div>
+                            <label for="model-type" class="block text-sm font-medium text-gray-700">Model Type</g-label>
+                            <select id="model-type" name="model-type" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                <option value="random_forest">Random Forest</option>
+                                <option value="xgboost">XGBoost</option>
+                                <option value="svm">SVM</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="test-size" class="block text-sm font-medium text-gray-700">Test Size</label>
+                            <input type="range" id="test-size" name="test-size" min="0.1" max="0.5" step="0.05" value="0.2" class="mt-1 block w-full">
+                            <span id="test-size-value" class="text-sm text-gray-500">0.2</span>
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="block text-sm font-medium text-gray-700">Feature Columns (X)</label>
+                            <p class="text-xs text-gray-500 mb-2">Select all columns to use for training.</p>
+                            <div id="feature-columns" class="column-list p-4 bg-gray-50 border border-gray-300 rounded-md grid grid-cols-2 md:grid-cols-4 gap-2">
+                                <!-- Checkboxes will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button type="submit" id="train-button" class="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-75 transition duration-200">
+                            Train Model
+                        </button>
+                    </div>
+                </form>
+                <div class="mt-6">
+                    <div id="train-loader" class="hidden flex justify-center items-center h-64">
+                        <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent border-solid rounded-full animate-spin"></div>
+                    </div>
+                    <div id="train-results" class="hidden">
+                        <h3 class="text-xl font-semibold mb-2">Training Results</h3>
+                        <p id="train-accuracy" class="mb-4"></p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-lg font-semibold">Evaluation Plot</h4>
+                                <img id="train-plot" src="" alt="Model Evaluation Plot" class="rounded-lg shadow-sm border">
+                            </div>
+                            <div id="train-report-container">
+                                <h4 class="text-lg font-semibold">Classification Report</h4>
+                                <pre id="train-report" class="text-sm bg-gray-100 p-4 rounded-lg overflow-x-auto"></pre>
+                            </div>
+                            <div id="feature-importance-container" class="md:col-span-2">
+                                <h4 class="text-lg font-semibold">Feature Importance</h4>
+                                <pre id="feature-importance" class="text-sm bg-gray-100 p-4 rounded-lg overflow-x-auto"></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="train-error" class="hidden text-red-600 mt-4"></div>
+                </div>
+            </div>
+
+            <!-- Section 5: Model Comparison -->
+            <div id="comparison-section" class="main-section hidden bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">4. Compare Models</h2>
+                <form id="compare-form">
+                    <p class="text-sm text-gray-600 mb-4">This will train SVM, Random Forest, and XGBoost on the same data for comparison. Uses the Target and Features selected in the "Model Training" tab.</p>
+                    <button type="submit" id="compare-button" class="px-6 py-2 bg-teal-600 text-white font-semibold rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-75 transition duration-200">
+                        Run Comparison
+                    </button>
+                </form>
+                <div class="mt-6">
+                    <div id="compare-loader" class="hidden flex justify-center items-center h-64">
+                        <div class="w-12 h-12 border-4 border-teal-500 border-t-transparent border-solid rounded-full animate-spin"></div>
+                    </div>
+                    <div id="compare-results" class="hidden">
+                        <h3 class="text-xl font-semibold mb-2">Comparison Results</h3>
+                        <pre id="compare-report" class="text-sm bg-gray-100 p-4 rounded-lg overflow-x-auto"></pre>
+                    </div>
+                    <div id="compare-error" class="hidden text-red-600 mt-4"></div>
+                </div>
+            </div>
+
+            <!-- Section 6: Prediction -->
+            <div id="prediction-section" class="main-section hidden bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">5. Make Prediction</h2>
+                <p id="prediction-info" class="text-sm text-gray-600 mb-4">A model must be trained first. The form below is built dynamically based on the trained model's features.</p>
+                <form id="predict-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Dynamic inputs will be inserted here -->
+                </form>
+                <div class="mt-4">
+                    <button type="submit" form="predict-form" id="predict-button" class="px-6 py-2 bg-pink-600 text-white font-semibold rounded-lg shadow-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-75 transition duration-200">
+                        Predict
+                    </button>
+                </div>
+                <div class="mt-6">
+                    <div id="predict-loader" class="hidden flex justify-center items-center h-24">
+                        <div class="w-8 h-8 border-4 border-pink-500 border-t-transparent border-solid rounded-full animate-spin"></div>
+                    </div>
+                    <div id="predict-results" class="hidden">
+                        <h3 class="text-xl font-semibold mb-2">Prediction Result</h3>
+                        <p id="predict-output" class="text-2xl font-bold text-pink-700 bg-pink-50 p-4 rounded-lg"></p>
+                    </div>
+                    <div id="predict-error" class="hidden text-red-600 mt-4"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // API Base URL - uses relative path so it works on any IP/port automatically
+        const API_URL = '';
+
+        // Global state
+        let DATA_INFO = null;
+        let TRAINED_FEATURES = null;
+        let TRAINED_FEATURE_STATS = null;
+        let SESSION_ID = null;
+
+        // --- DOM Elements ---
+        const uploadForm = document.getElementById('upload-form');
+        const fileInput = document.getElementById('file-input');
+        const uploadButton = document.getElementById('upload-button');
+        const globalLoader = document.getElementById('global-loader');
+        
+        const mainContent = document.getElementById('main-content');
+        const mainTabs = document.getElementById('main-tabs');
+        
+        const messagePopup = document.getElementById('message-popup');
+        const messageText = document.getElementById('message-text');
+        const closeMessage = document.getElementById('close-message');
+        
+        const visForm = document.getElementById('vis-form');
+        const plotLoader = document.getElementById('plot-loader');
+        const plotContainer = document.getElementById('plot-container');
+        const plotError = document.getElementById('plot-error');
+        
+        const trainForm = document.getElementById('train-form');
+        const trainLoader = document.getElementById('train-loader');
+        const trainResults = document.getElementById('train-results');
+        const trainError = document.getElementById('train-error');
+        const trainAccuracy = document.getElementById('train-accuracy');
+        const trainPlot = document.getElementById('train-plot');
+        const trainReportContainer = document.getElementById('train-report-container');
+        const trainReport = document.getElementById('train-report');
+        const featureImportanceContainer = document.getElementById('feature-importance-container');
+        const featureImportance = document.getElementById('feature-importance');
+        const testSizeSlider = document.getElementById('test-size');
+        const testSizeValue = document.getElementById('test-size-value');
+
+        const compareForm = document.getElementById('compare-form');
+        const compareLoader = document.getElementById('compare-loader');
+        const compareResults = document.getElementById('compare-results');
+        const compareReport = document.getElementById('compare-report');
+        const compareError = document.getElementById('compare-error');
+
+        const predictForm = document.getElementById('predict-form');
+        const predictLoader = document.getElementById('predict-loader');
+        const predictResults = document.getElementById('predict-results');
+        const predictOutput = document.getElementById('predict-output');
+        const predictError = document.getElementById('predict-error');
+        const predictionInfo = document.getElementById('prediction-info');
+
+        // --- NEW BI Dashboard Elements ---
+        const biForm = document.getElementById('bi-form');
+        const biDimensions = document.getElementById('bi-dimensions');
+        const biMeasures = document.getElementById('bi-measures');
+        const biAggregationsContainer = document.getElementById('bi-aggregations');
+        const biTimeDimension = document.getElementById('bi-time-dimension');
+        const biTimeFrequencyContainer = document.getElementById('bi-time-frequency-container');
+        const biLoader = document.getElementById('bi-loader');
+        const biChartContainer = document.getElementById('bi-chart-container');
+        const biError = document.getElementById('bi-error');
+
+        // --- Utility Functions ---
+
+        // Show/Hide main sections
+        function showSection(sectionId) {
+            document.querySelectorAll('.main-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-link').forEach(tab => {
+                if (tab.dataset.tab === sectionId) {
+                    tab.classList.remove('tab-inactive');
+                    tab.classList.add('tab-active');
+                } else {
+                    tab.classList.remove('tab-active');
+                    tab.classList.add('tab-inactive');
+                }
+            });
+        }
+
+        // Show/Hide loaders
+        function showLoader(loader, button, show) {
+            if (show) {
+                loader.classList.remove('hidden');
+                if (button) button.disabled = true;
+            } else {
+                loader.classList.add('hidden');
+                if (button) button.disabled = false;
+            }
+        }
+
+        // Show popup messages
+        function showMessage(message, isError = false) {
+            messageText.textContent = message;
+            if (isError) {
+                messagePopup.classList.remove('bg-green-100', 'text-green-700');
+                messagePopup.classList.add('bg-red-100', 'text-red-700');
+            } else {
+                messagePopup.classList.remove('bg-red-100', 'text-red-700');
+                messagePopup.classList.add('bg-green-100', 'text-green-700');
+            }
+            messagePopup.classList.remove('hidden');
+            setTimeout(() => {
+                messagePopup.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Populate select options
+        function populateSelect(selectorId, options, isMultiple = false, includeEmpty = true) {
+            const select = document.querySelector(selectorId);
+            if (!select) return;
+            select.innerHTML = ''; // Clear existing
+            
+            if (includeEmpty && !isMultiple) {
+                const emptyOpt = document.createElement('option');
+                emptyOpt.value = '';
+                emptyOpt.textContent = 'None';
+                select.appendChild(emptyOpt);
+            }
+
+            options.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option;
+                opt.textContent = option;
+                select.appendChild(opt);
+            });
+        }
+
+        // Populate feature checkboxes
+        function populateFeatures(columns, target) {
+            const container = document.getElementById('feature-columns');
+            container.innerHTML = '';
+            columns.forEach(col => {
+                if (col === target) return; // Don't list target as a feature
+                const div = document.createElement('div');
+                div.classList.add('flex', 'items-center');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `feature-${col}`;
+                checkbox.name = 'feature';
+                checkbox.value = col;
+                checkbox.checked = true;
+                checkbox.classList.add('h-4', 'w-4', 'text-blue-600', 'border-gray-300', 'rounded', 'focus:ring-blue-500');
+                const label = document.createElement('label');
+                label.htmlFor = `feature-${col}`;
+                label.textContent = col;
+                label.classList.add('ml-2', 'block', 'text-sm', 'text-gray-900');
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                container.appendChild(div);
+            });
+        }
+
+        // Generic fetch wrapper
+        async function fetchWithLoading(url, options, loader, button, errorEl, successCallback, errorCallback) {
+            showLoader(loader, button, true);
+            if (errorEl) errorEl.classList.add('hidden');
+            
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                }
+                
+                if (successCallback) successCallback(data);
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+                const errorMessage = error.message || 'An unknown error occurred.';
+                if (errorCallback) {
+                    errorCallback(errorMessage);
+                } else if (errorEl) {
+                    errorEl.textContent = `Error: ${errorMessage}`;
+                    errorEl.classList.remove('hidden');
+                } else {
+                    showMessage(errorMessage, true);
+                }
+            } finally {
+                showLoader(loader, button, false);
+            }
+        }
+
+        // --- Event Handlers ---
+
+        // 1. Upload
+        uploadForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (fileInput.files.length === 0) {
+                showMessage('Please select a file to upload.', true);
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            fetchWithLoading(
+                API_URL + '/upload',
+                { method: 'POST', body: formData },
+                globalLoader,
+                uploadButton,
+                null,
+                handleUploadSuccess,
+                (error) => {
+                    showMessage(`Upload failed: ${error}`, true);
+                    mainContent.classList.add('hidden');
+                }
+            );
+        });
+
+        function handleUploadSuccess(data) {
+            showMessage('File uploaded and analyzed successfully!', false);
+            mainContent.classList.remove('hidden');
+            showSection('data-overview-section'); // Show first tab
+
+            DATA_INFO = data.data_info;
+            SESSION_ID = data.session_id;
+
+            // --- NEW: Parse dtypes to find datetime columns for BI ---
+            DATA_INFO.datetime_columns = Object.entries(DATA_INFO.dtypes)
+                .filter(([col, dtype]) => dtype.startsWith('datetime'))
+                .map(([col, dtype]) => col);
+
+            // 1. Populate Data Overview
+            document.getElementById('file-shape').textContent = `Shape: ${DATA_INFO.shape[0]} rows, ${DATA_INFO.shape[1]} columns`;
+            document.getElementById('row-quality').textContent = `Found ${DATA_INFO.row_quality.fully_empty_count} fully empty rows.`;
+            
+            const colList = document.getElementById('column-list');
+            colList.innerHTML = '';
+            DATA_INFO.columns.forEach(col => {
+                const li = document.createElement('li');
+                li.textContent = `${col} (${DATA_INFO.dtypes[col]})`;
+                colList.appendChild(li);
+            });
+
+            const tableHead = document.getElementById('data-head-header');
+            const tableBody = document.getElementById('data-head-body');
+            tableHead.innerHTML = '';
+            tableBody.innerHTML = '';
+            DATA_INFO.columns.forEach(col => {
+                const th = document.createElement('th');
+                th.scope = 'col';
+                th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                th.textContent = col;
+                tableHead.appendChild(th);
+            });
+            DATA_INFO.first_few_rows.forEach(row => {
+                const tr = document.createElement('tr');
+                DATA_INFO.columns.forEach(col => {
+                    const td = document.createElement('td');
+                    td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+                    td.textContent = row[col];
+                    tr.appendChild(td);
+                });
+                tableBody.appendChild(tr);
+            });
+
+            // 2. Populate Visualization Selects
+            populateSelect('#x-col', DATA_INFO.columns, false, false);
+            populateSelect('#y-col', DATA_INFO.columns, false, false);
+            
+            // 3. Populate Training Selects
+            populateSelect('#target-column', DATA_INFO.columns, false, false);
+            populateFeatures(DATA_INFO.columns, DATA_INFO.columns[0]); // Populate features based on first col as default target
+
+            // 4. Populate BI Dashboard Selects
+            // Show ALL columns as possible dimensions (user may want to group by numeric cols like Year, ID, etc.)
+            populateSelect('#bi-dimensions', DATA_INFO.columns, true);
+            populateSelect('#bi-measures', DATA_INFO.numeric_columns, true);
+            // Show datetime columns + all columns as potential time dimensions (backend will auto-convert)
+            const timeCandidates = [...new Set([...DATA_INFO.datetime_columns, ...DATA_INFO.columns])];
+            populateSelect('#bi-time-dimension', timeCandidates, false, true); // Includes "None"
+        }
+
+        // Tab Navigation
+        mainTabs.addEventListener('click', (e) => {
+            if (e.target.classList.contains('tab-link')) {
+                showSection(e.target.dataset.tab);
+            }
+        });
+
+        // Close message popup
+        closeMessage.addEventListener('click', () => {
+            messagePopup.classList.add('hidden');
+        });
+
+        // 2. Visualization
+        visForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(visForm);
+            const payload = {
+                session_id: SESSION_ID,
+                plot_type: formData.get('plot-type'),
+                x_col: formData.get('x-col'),
+                y_col: formData.get('y-col'),
+                hue_col: null // Not implemented in UI, but backend supports it
+            };
+
+            fetchWithLoading(
+                API_URL + '/visualize',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                },
+                plotLoader,
+                document.getElementById('plot-button'),
+                plotError,
+                (data) => {
+                    plotContainer.innerHTML = `<img src="data:image/png;base64,${data.plot_url}" alt="Plot" class="rounded-lg shadow-sm border">`;
+                    plotError.classList.add('hidden');
+                },
+                (error) => {
+                    plotContainer.innerHTML = '';
+                    plotError.textContent = `Plotting failed: ${error}`;
+                    plotError.classList.remove('hidden');
+                }
+            );
+        });
+
+        // 3. Training
+        testSizeSlider.addEventListener('input', (e) => {
+            testSizeValue.textContent = e.target.value;
+        });
+
+        document.getElementById('target-column').addEventListener('change', (e) => {
+            populateFeatures(DATA_INFO.columns, e.target.value);
+        });
+        
+        trainForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(trainForm);
+            const selectedFeatures = Array.from(document.querySelectorAll('input[name="feature"]:checked')).map(cb => cb.value);
+            
+            if (selectedFeatures.length === 0) {
+                showMessage('Please select at least one feature column.', true);
+                return;
+            }
+
+            const payload = {
+                session_id: SESSION_ID,
+                target_column: formData.get('target-column'),
+                feature_columns: selectedFeatures,
+                test_size: parseFloat(formData.get('test-size')),
+                model_type: formData.get('model-type')
+            };
+
+            fetchWithLoading(
+                API_URL + '/train_model',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                },
+                trainLoader,
+                document.getElementById('train-button'),
+                trainError,
+                handleTrainSuccess,
+                handleTrainError
+            );
+        });
+
+        function handleTrainSuccess(data) {
+            trainResults.classList.remove('hidden');
+            trainError.classList.add('hidden');
+            
+            // Save trained features for prediction form
+            TRAINED_FEATURES = data.feature_columns; // These are the final columns after encoding
+            TRAINED_FEATURE_STATS = data.feature_stats;
+            predictionInfo.textContent = 'Model trained. The form below is ready.';
+            buildPredictionForm(); // Build the dynamic form
+
+            if (data.problem_type === 'classification') {
+                trainAccuracy.textContent = `Problem Type: Classification. Accuracy: ${(data.accuracy * 100).toFixed(2)}%`;
+                trainReport.textContent = JSON.stringify(data.classification_report, null, 2);
+                trainReportContainer.classList.remove('hidden');
+            } else {
+                trainAccuracy.textContent = `Problem Type: Regression. R² Score: ${data.accuracy.toFixed(4)}`;
+                trainReport.textContent = JSON.stringify(data.classification_report, null, 2); // Still named 'classification_report' in backend
+                trainReportContainer.classList.remove('hidden');
+            }
+            
+            trainPlot.src = `data:image/png;base64,${data.evaluation_plot}`;
+            
+            if (data.feature_importance && Object.keys(data.feature_importance).length > 0) {
+                // Sort by importance
+                const sortedImportance = Object.entries(data.feature_importance)
+                    .sort(([,a],[,b]) => b-a)
+                    .reduce((r, [k, v]) => ({ ...r, [k]: v }), {});
+                featureImportance.textContent = JSON.stringify(sortedImportance, null, 2);
+                featureImportanceContainer.classList.remove('hidden');
+            } else {
+                featureImportanceContainer.classList.add('hidden');
+            }
+        }
+
+        function handleTrainError(error) {
+            trainResults.classList.add('hidden');
+            trainError.textContent = `Model training failed: ${error}`;
+            trainError.classList.remove('hidden');
+            // Clear trained features
+            TRAINED_FEATURES = null;
+            TRAINED_FEATURE_STATS = null;
+            predictionInfo.textContent = 'A model must be trained first.';
+            predictForm.innerHTML = '';
+        }
+
+        // 4. Comparison
+        compareForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const target = document.getElementById('target-column').value;
+            const selectedFeatures = Array.from(document.querySelectorAll('input[name="feature"]:checked')).map(cb => cb.value);
+
+            if (!target || selectedFeatures.length === 0) {
+                showMessage('Please select a target and features on the "Model Training" tab first.', true);
+                return;
+            }
+
+            const payload = {
+                session_id: SESSION_ID,
+                target_column: target,
+                feature_columns: selectedFeatures,
+                test_size: parseFloat(testSizeSlider.value)
+            };
+
+            fetchWithLoading(
+                API_URL + '/compare_models',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                },
+                compareLoader,
+                document.getElementById('compare-button'),
+                compareError,
+                (data) => {
+                    compareResults.classList.remove('hidden');
+                    compareError.classList.add('hidden');
+                    compareReport.textContent = JSON.stringify(data.results, null, 2);
+                },
+                (error) => {
+                    compareResults.classList.add('hidden');
+                    compareError.textContent = `Comparison failed: ${error}`;
+                    compareError.classList.remove('hidden');
+                }
+            );
+        });
+
+        // 5. Prediction
+        function buildPredictionForm() {
+            predictForm.innerHTML = '';
+            if (!TRAINED_FEATURES || !DATA_INFO) {
+                return;
+            }
+            
+            // Get original features before one-hot encoding
+            const originalFeatures = Array.from(document.querySelectorAll('input[name="feature"]:checked')).map(cb => cb.value);
+
+            originalFeatures.forEach(col => {
+                const colType = DATA_INFO.dtypes[col];
+                const div = document.createElement('div');
+                
+                const label = document.createElement('label');
+                label.htmlFor = `predict-${col}`;
+                label.textContent = col;
+                label.className = 'block text-sm font-medium text-gray-700';
+                div.appendChild(label);
+
+                if (DATA_INFO.categorical_columns.includes(col)) {
+                    // Create select for categorical
+                    const select = document.createElement('select');
+                    select.id = `predict-${col}`;
+                    select.name = col;
+                    select.className = 'mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md';
+                    // Need to get unique values. This is a limitation,
+                    // for now just provide a text input.
+                    // A better way would be to get unique values from backend.
+                    // --- FALLBACK TO TEXT INPUT ---
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.id = `predict-${col}`;
+                    input.name = col;
+                    input.className = 'mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm';
+                    input.placeholder = `(Categorical) e.g., "Category A"`;
+                    div.appendChild(input);
+
+                } else if (DATA_INFO.datetime_columns.includes(col)) {
+                    // Create datetime picker
+                    const input = document.createElement('input');
+                    input.type = 'datetime-local';
+                    input.id = `predict-${col}`;
+                    input.name = col;
+                    input.className = 'mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm';
+                    div.appendChild(input);
+                
+                } else {
+                    // Create input for numeric
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.step = 'any';
+                    input.id = `predict-${col}`;
+                    input.name = col;
+                    input.className = 'mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm';
+                    
+                    // Use stats for placeholder
+                    let placeholder = '(Numeric)';
+                    if (TRAINED_FEATURE_STATS && TRAINED_FEATURE_STATS[col]) {
+                         placeholder = `e.g., Mean: ${TRAINED_FEATURE_STATS[col].mean?.toFixed(2) || 'N/A'}`;
+                    }
+                    input.placeholder = placeholder;
+                    div.appendChild(input);
+                }
+                predictForm.appendChild(div);
+            });
+        }
+
+        predictForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(predictForm);
+            const payload = { session_id: SESSION_ID, features: {} };
+            
+            let hasError = false;
+            for (let [key, value] of formData.entries()) {
+                const colType = DATA_INFO.dtypes[key];
+                
+                // Try to convert to number if it's not categorical or datetime
+                if (!DATA_INFO.categorical_columns.includes(key) && !DATA_INFO.datetime_columns.includes(key)) {
+                    if (value === '') {
+                        showMessage(`Please fill in all fields. '${key}' is missing.`, true);
+                        hasError = true;
+                        break;
+                    }
+                    payload.features[key] = parseFloat(value);
+                    if (isNaN(payload.features[key])) {
+                        showMessage(`Invalid number for '${key}'.`, true);
+                        hasError = true;
+                        break;
+                    }
+                } else if (DATA_INFO.datetime_columns.includes(key)) {
+                     if (value === '') {
+                        showMessage(`Please fill in all fields. '${key}' is missing.`, true);
+                        hasError = true;
+                        break;
+                    }
+                    payload.features[key] = value; // Send as ISO string
+                } else {
+                    payload.features[key] = value;
+                }
+            }
+            
+            if (hasError) return;
+
+            fetchWithLoading(
+                API_URL + '/predict',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                },
+                predictLoader,
+                document.getElementById('predict-button'),
+                predictError,
+                (data) => {
+                    predictResults.classList.remove('hidden');
+                    predictError.classList.add('hidden');
+                    predictOutput.textContent = JSON.stringify(data.prediction, null, 2);
+                },
+                (error) => {
+                    predictResults.classList.add('hidden');
+                    predictError.textContent = `Prediction failed: ${error}`;
+                    predictError.classList.remove('hidden');
+                }
+            );
+        });
+
+        // --- NEW BI Dashboard Handlers ---
+
+        // Show/Hide Time Frequency
+        biTimeDimension.addEventListener('change', (e) => {
+            if (e.target.value) {
+                biTimeFrequencyContainer.classList.remove('hidden');
+            } else {
+                biTimeFrequencyContainer.classList.add('hidden');
+            }
+        });
+
+        // Dynamically add/remove aggregation selectors
+        biMeasures.addEventListener('change', (e) => {
+            biAggregationsContainer.innerHTML = '';
+            const selectedMeasures = Array.from(e.target.selectedOptions).map(opt => opt.value);
+            
+            if (selectedMeasures.length === 0) {
+                 biAggregationsContainer.innerHTML = '<p class="text-sm text-gray-500">Select measures to see aggregation options.</p>';
+                 return;
+            }
+
+            selectedMeasures.forEach(measure => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center space-x-2';
+                
+                const label = document.createElement('label');
+                label.htmlFor = `agg-${measure}`;
+                label.textContent = `Aggregate '${measure}' by:`;
+                label.className = 'text-sm font-medium text-gray-700 w-1/2';
+                
+                const select = document.createElement('select');
+                select.id = `agg-${measure}`;
+                select.name = `agg-${measure}`;
+                select.className = 'mt-1 block w-1/2 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md';
+                
+                const funcs = ['sum', 'mean', 'count', 'min', 'max', 'nunique'];
+                funcs.forEach(func => {
+                    const opt = document.createElement('option');
+                    opt.value = func;
+                    opt.textContent = func;
+                    if (func === 'sum') opt.selected = true; // Default to sum
+                    select.appendChild(opt);
+                });
+
+                div.appendChild(label);
+                div.appendChild(select);
+                biAggregationsContainer.appendChild(div);
+            });
+        });
+
+        // Handle BI Form Submit
+        biForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const selectedDimensions = Array.from(biDimensions.selectedOptions).map(opt => opt.value);
+            const selectedMeasures = Array.from(biMeasures.selectedOptions).map(opt => opt.value);
+            const timeDimension = biTimeDimension.value;
+            const timeFrequency = biTimeFrequencyContainer.classList.contains('hidden') ? null : document.getElementById('bi-time-frequency').value;
+
+            if ((selectedDimensions.length === 0 && !timeDimension) || selectedMeasures.length === 0) {
+                showMessage('Must select at least one Measure and at least one Dimension (or Time Dimension).', true);
+                return;
+            }
+
+            const aggregations = {};
+            selectedMeasures.forEach(measure => {
+                aggregations[measure] = document.getElementById(`agg-${measure}`).value;
+            });
+
+            const payload = {
+                session_id: SESSION_ID,
+                dimensions: selectedDimensions,
+                measures: selectedMeasures,
+                aggregations: aggregations,
+                time_dimension: timeDimension || null,
+                time_frequency: timeFrequency
+            };
+
+            fetchWithLoading(
+                API_URL + '/aggregate',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                },
+                biLoader,
+                document.getElementById('bi-generate-button'),
+                biError,
+                (data) => {
+                    biError.classList.add('hidden');
+                    // Pass payload info to renderer
+                    renderBIChart(data.data, payload);
+                },
+                (error) => {
+                    biChartContainer.innerHTML = ''; // Clear old chart
+                    biError.textContent = `Aggregation failed: ${error}`;
+                    biError.classList.remove('hidden');
+                }
+            );
+        });
+
+        // Render the BI Chart using Plotly
+        function renderBIChart(data, settings) {
+            Plotly.purge(biChartContainer); // Clear previous plot
+            if (data.length === 0) {
+                biChartContainer.innerHTML = '<p class="p-4 text-center text-gray-500">Query returned no data.</p>';
+                return;
+            }
+
+            const { dimensions, measures, time_dimension } = settings;
+            const measure = measures[0]; // Simple case: use first measure
+            let plotData = [];
+            let layout = {
+                title: 'BI Chart',
+                xaxis: { title: 'Category' },
+                yaxis: { title: measure },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#374151' } // gray-700
+            };
+
+            try {
+                // Case 1: Time Series Line Chart
+                if (time_dimension) {
+                    layout.title = `${measure} over Time`;
+                    layout.xaxis.title = time_dimension;
+                    
+                    if (dimensions.length === 0) {
+                        // Simple time series
+                        plotData.push({
+                            x: data.map(row => row[time_dimension]),
+                            y: data.map(row => row[measure]),
+                            type: 'scatter',
+                            mode: 'lines+markers',
+                            name: measure
+                        });
+                    } else {
+                        // Grouped time series
+                        const groupKey = dimensions[0]; // Use first dimension for grouping
+                        layout.title = `${measure} over Time, grouped by ${groupKey}`;
+                        const groups = [...new Set(data.map(row => row[groupKey]))];
+                        
+                        groups.forEach(group => {
+                            const groupData = data.filter(row => row[groupKey] === group);
+                            plotData.push({
+                                x: groupData.map(row => row[time_dimension]),
+                                y: groupData.map(row => row[measure]),
+                                type: 'scatter',
+                                mode: 'lines+markers',
+                                name: group
+                            });
+                        });
+                        layout.showlegend = true;
+                    }
+
+                // Case 2: Bar Chart
+                } else if (dimensions.length > 0) {
+                    const xKey = dimensions[0]; // Use first dimension for X-axis
+                    layout.xaxis.title = xKey;
+
+                    if (dimensions.length === 1) {
+                        // Simple Bar Chart
+                        layout.title = `${measure} by ${xKey}`;
+                        plotData.push({
+                            x: data.map(row => row[xKey]),
+                            y: data.map(row => row[measure]),
+                            type: 'bar',
+                            name: measure
+                        });
+                    } else {
+                        // Grouped Bar Chart
+                        const groupKey = dimensions[1]; // Use second dimension for color
+                        layout.title = `${measure} by ${xKey}, grouped by ${groupKey}`;
+                        layout.barmode = 'group';
+                        
+                        const groups = [...new Set(data.map(row => row[groupKey]))];
+                        groups.forEach(group => {
+                            const groupData = data.filter(row => row[groupKey] === group);
+                            plotData.push({
+                                x: groupData.map(row => row[xKey]),
+                                y: groupData.map(row => row[measure]),
+                                type: 'bar',
+                                name: group
+                            });
+                        });
+                        layout.showlegend = true;
+                    }
+                } else {
+                     biChartContainer.innerHTML = '<p class="p-4 text-center text-gray-500">Could not determine chart type. Please select a dimension.</p>';
+                    return;
+                }
+                
+                Plotly.newPlot(biChartContainer, plotData, layout, {responsive: true});
+
+            } catch (error) {
+                console.error("Plotly error:", error);
+                biChartContainer.innerHTML = `<p class="p-4 text-center text-red-500">Error rendering chart: ${error.message}</p>`;
+            }
+        }
+
+
+    </script>
+</body>
+</html>
+
