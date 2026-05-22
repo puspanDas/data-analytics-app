@@ -14,6 +14,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, mean_squared_error, r2_score
 import xgboost as xgb
+import lightgbm as lgb
 import os
 import json
 from werkzeug.utils import secure_filename
@@ -185,6 +186,37 @@ def test():
 def test_server():
     return send_file('test_server.html')
 
+def reduce_mem_usage(df):
+    """Iterate through all columns and modify the data type to reduce memory usage."""
+    start_mem = df.memory_usage().sum() / 1024**2
+    print(f"Memory usage of dataframe is {start_mem:.2f} MB")
+    
+    for col in df.columns:
+        col_type = df[col].dtype
+        
+        if col_type != object and not pd.api.types.is_datetime64_any_dtype(df[col]):
+            c_min = df[col].min()
+            c_max = df[col].max()
+            if str(col_type)[:3] == 'int':
+                if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
+                    df[col] = df[col].astype(np.int8)
+                elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
+                    df[col] = df[col].astype(np.int16)
+                elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                    df[col] = df[col].astype(np.int32)
+                elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
+                    df[col] = df[col].astype(np.int64)  
+            else:
+                if c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                    df[col] = df[col].astype(np.float32)
+                else:
+                    df[col] = df[col].astype(np.float64)
+                    
+    end_mem = df.memory_usage().sum() / 1024**2
+    print(f"Memory usage after optimization is: {end_mem:.2f} MB")
+    print(f"Decreased by {100 * (start_mem - end_mem) / start_mem:.1f}%")
+    return df
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     session_id = str(uuid.uuid4())
@@ -226,6 +258,9 @@ def upload_file():
                 else:
                     # This requires 'openpyxl' (for .xlsx) or 'xlrd' (for .xls)
                     session['data'] = pd.read_excel(filepath)
+                
+                # Compress the dataframe in memory
+                session['data'] = reduce_mem_usage(session['data'])
                 
                 print(f"Data loaded successfully: {session['data'].shape}")  # Debug print
                 
@@ -572,8 +607,15 @@ def train_model():
             else:
                 current_model = xgb.XGBRegressor(n_estimators=100, random_state=42, eval_metric='rmse')
                 print("Training XGBoost Regressor")
+        elif model_type == 'lightgbm':
+            if current_target_is_classification:
+                current_model = lgb.LGBMClassifier(random_state=42)
+                print("Training LightGBM Classifier")
+            else:
+                current_model = lgb.LGBMRegressor(random_state=42)
+                print("Training LightGBM Regressor")
         else:
-            return jsonify({'error': 'Invalid model type. Choose from: svm, random_forest, xgboost'}), 400
+            return jsonify({'error': 'Invalid model type. Choose from: svm, random_forest, xgboost, lightgbm'}), 400
         
         current_model.fit(X_train, y_train)
         
@@ -900,6 +942,11 @@ def predict():
             # For regression, ensure it's a standard float
             prediction_out = float(prediction)
         
+        session['latest_prediction'] = {
+            'features': features_dict,
+            'prediction': prediction_out
+        }
+        
         return jsonify({
             'success': True,
             'prediction': prediction_out,
@@ -1137,6 +1184,9 @@ def aggregate_data():
         if time_dimension:
             aggregated_df[time_dimension] = aggregated_df[time_dimension].astype(str)
             
+        # Store the aggregated dataframe in session for exporting
+        session['bi_data'] = aggregated_df
+        
         # Use the custom encoder-safe method
         result_json = aggregated_df.to_dict('records')
         cleaned_json = json.loads(json.dumps(result_json, cls=CustomJSONEncoder))
@@ -1148,6 +1198,62 @@ def aggregate_data():
         return jsonify({'error': f'Error during aggregation: {str(e)}'}), 400
 # --- END: NEW POWER BI-LIKE AGGREGATION ENDPOINT ---
 
+# --- START: EXPORT ENDPOINT ---
+@app.route('/export', methods=['GET'])
+def export_data():
+    session_id = request.args.get('session_id')
+    export_type = request.args.get('type') # 'raw', 'bi', 'prediction'
+    export_format = request.args.get('format', 'csv') # 'csv' or 'xlsx'
+    
+    session = get_session(session_id)
+    if not session:
+        return jsonify({'error': 'Session expired or not found.'}), 400
+        
+    df_to_export = None
+    filename_prefix = 'export'
+    
+    if export_type == 'raw':
+        df_to_export = session.get('data')
+        filename_prefix = 'raw_data'
+    elif export_type == 'bi':
+        df_to_export = session.get('bi_data')
+        filename_prefix = 'aggregated_bi_data'
+    elif export_type == 'prediction':
+        latest_pred = session.get('latest_prediction')
+        if latest_pred:
+            pred_df = pd.DataFrame([latest_pred['features']])
+            pred_df['Predicted_Value'] = latest_pred['prediction']
+            df_to_export = pred_df
+            filename_prefix = 'prediction'
+            
+    if df_to_export is None:
+        return jsonify({'error': f'No data available for export type: {export_type}'}), 400
+        
+    # Generate file in memory
+    buffer = io.BytesIO()
+    
+    try:
+        if export_format == 'csv':
+            df_to_export.to_csv(buffer, index=False)
+            buffer.seek(0)
+            mimetype = 'text/csv'
+            filename = f"{filename_prefix}.csv"
+        elif export_format == 'xlsx':
+            df_to_export.to_excel(buffer, index=False, engine='openpyxl')
+            buffer.seek(0)
+            mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            filename = f"{filename_prefix}.xlsx"
+        else:
+            return jsonify({'error': 'Invalid format. Use csv or xlsx'}), 400
+            
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype=mimetype
+        )
+    except Exception as e:
+        return jsonify({'error': f"Error generating export: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

@@ -102,7 +102,13 @@
                         <ul id="column-list" class="text-sm list-disc list-inside"></ul>
                     </div>
                     <div class="md:col-span-2">
-                        <h3 class="text-lg font-semibold text-gray-600">First 5 Rows</h3>
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-lg font-semibold text-gray-600">First 5 Rows</h3>
+                            <div class="flex space-x-2">
+                                <button onclick="exportData('raw', 'csv')" class="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">Export CSV</button>
+                                <button onclick="exportData('raw', 'xlsx')" class="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">Export Excel</button>
+                            </div>
+                        </div>
                         <div class="overflow-x-auto">
                             <table id="data-head-table" class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
@@ -142,6 +148,19 @@
                             </div>
                         </div>
 
+                        <!-- Chart Type -->
+                        <div>
+                            <label for="bi-chart-type" class="block text-sm font-medium text-gray-700">Chart Type</label>
+                            <select id="bi-chart-type" name="bi-chart-type" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                <option value="auto">Auto (Recommended)</option>
+                                <option value="line">Line Chart</option>
+                                <option value="bar">Bar Chart</option>
+                                <option value="pie">Pie Chart</option>
+                                <option value="area">Area Chart</option>
+                                <option value="scatter">Scatter Plot</option>
+                            </select>
+                        </div>
+                        
                         <!-- Time Dimension -->
                         <div>
                             <label for="bi-time-dimension" class="block text-sm font-medium text-gray-700">Time Dimension (Optional)</label>
@@ -177,6 +196,10 @@
                     </div>
                     <div id="bi-chart-container" class="bg-gray-50 rounded-lg shadow-inner min-h-[400px]"></div>
                     <div id="bi-error" class="hidden text-red-600 mt-4"></div>
+                    <div id="bi-export-buttons" class="hidden mt-4 flex justify-end space-x-4">
+                        <button onclick="exportData('bi', 'csv')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Export Data (CSV)</button>
+                        <button onclick="exportData('bi', 'xlsx')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Export Data (Excel)</button>
+                    </div>
                 </div>
             </div>
 
@@ -234,6 +257,7 @@
                             <select id="model-type" name="model-type" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
                                 <option value="random_forest">Random Forest</option>
                                 <option value="xgboost">XGBoost</option>
+                                <option value="lightgbm">LightGBM (Fastest)</option>
                                 <option value="svm">SVM</option>
                             </select>
                         </div>
@@ -320,8 +344,12 @@
                         <div class="w-8 h-8 border-4 border-pink-500 border-t-transparent border-solid rounded-full animate-spin"></div>
                     </div>
                     <div id="predict-results" class="hidden">
-                        <h3 class="text-xl font-semibold mb-2">Prediction Result</h3>
-                        <p id="predict-output" class="text-2xl font-bold text-pink-700 bg-pink-50 p-4 rounded-lg"></p>
+                        <h3 class="text-xl font-semibold mb-2">Prediction:</h3>
+                        <p id="predict-output" class="text-2xl font-bold text-pink-600 bg-pink-50 p-4 rounded-lg inline-block"></p>
+                        <div class="mt-4 flex space-x-4">
+                            <button onclick="exportData('prediction', 'csv')" class="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700">Export to CSV</button>
+                            <button onclick="exportData('prediction', 'xlsx')" class="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700">Export to Excel</button>
+                        </div>
                     </div>
                     <div id="predict-error" class="hidden text-red-600 mt-4"></div>
                 </div>
@@ -338,6 +366,16 @@
         let TRAINED_FEATURES = null;
         let TRAINED_FEATURE_STATS = null;
         let SESSION_ID = null;
+
+        // Export Function
+        function exportData(type, format) {
+            if (!SESSION_ID) {
+                showMessage("No active session. Please upload data first.", true);
+                return;
+            }
+            const url = `${API_URL}/export?session_id=${SESSION_ID}&type=${type}&format=${format}`;
+            window.location.href = url; // Trigger download
+        }
 
         // --- DOM Elements ---
         const uploadForm = document.getElementById('upload-form');
@@ -967,6 +1005,7 @@
             const selectedMeasures = Array.from(biMeasures.selectedOptions).map(opt => opt.value);
             const timeDimension = biTimeDimension.value;
             const timeFrequency = biTimeFrequencyContainer.classList.contains('hidden') ? null : document.getElementById('bi-time-frequency').value;
+            const chartType = document.getElementById('bi-chart-type').value;
 
             if ((selectedDimensions.length === 0 && !timeDimension) || selectedMeasures.length === 0) {
                 showMessage('Must select at least one Measure and at least one Dimension (or Time Dimension).', true);
@@ -984,7 +1023,8 @@
                 measures: selectedMeasures,
                 aggregations: aggregations,
                 time_dimension: timeDimension || null,
-                time_frequency: timeFrequency
+                time_frequency: timeFrequency,
+                chart_type: chartType
             };
 
             fetchWithLoading(
@@ -1015,10 +1055,14 @@
             Plotly.purge(biChartContainer); // Clear previous plot
             if (data.length === 0) {
                 biChartContainer.innerHTML = '<p class="p-4 text-center text-gray-500">Query returned no data.</p>';
+                document.getElementById('bi-export-buttons').classList.add('hidden');
                 return;
             }
 
-            const { dimensions, measures, time_dimension } = settings;
+            // Show export buttons on success
+            document.getElementById('bi-export-buttons').classList.remove('hidden');
+
+            const { dimensions, measures, time_dimension, chart_type } = settings;
             const measure = measures[0]; // Simple case: use first measure
             let plotData = [];
             let layout = {
@@ -1031,74 +1075,78 @@
             };
 
             try {
-                // Case 1: Time Series Line Chart
-                if (time_dimension) {
-                    layout.title = `${measure} over Time`;
-                    layout.xaxis.title = time_dimension;
-                    
-                    if (dimensions.length === 0) {
-                        // Simple time series
-                        plotData.push({
-                            x: data.map(row => row[time_dimension]),
-                            y: data.map(row => row[measure]),
-                            type: 'scatter',
-                            mode: 'lines+markers',
-                            name: measure
-                        });
-                    } else {
-                        // Grouped time series
-                        const groupKey = dimensions[0]; // Use first dimension for grouping
-                        layout.title = `${measure} over Time, grouped by ${groupKey}`;
-                        const groups = [...new Set(data.map(row => row[groupKey]))];
-                        
-                        groups.forEach(group => {
-                            const groupData = data.filter(row => row[groupKey] === group);
-                            plotData.push({
-                                x: groupData.map(row => row[time_dimension]),
-                                y: groupData.map(row => row[measure]),
-                                type: 'scatter',
-                                mode: 'lines+markers',
-                                name: group
-                            });
-                        });
-                        layout.showlegend = true;
-                    }
-
-                // Case 2: Bar Chart
-                } else if (dimensions.length > 0) {
-                    const xKey = dimensions[0]; // Use first dimension for X-axis
-                    layout.xaxis.title = xKey;
-
-                    if (dimensions.length === 1) {
-                        // Simple Bar Chart
-                        layout.title = `${measure} by ${xKey}`;
-                        plotData.push({
-                            x: data.map(row => row[xKey]),
-                            y: data.map(row => row[measure]),
-                            type: 'bar',
-                            name: measure
-                        });
-                    } else {
-                        // Grouped Bar Chart
-                        const groupKey = dimensions[1]; // Use second dimension for color
-                        layout.title = `${measure} by ${xKey}, grouped by ${groupKey}`;
-                        layout.barmode = 'group';
-                        
-                        const groups = [...new Set(data.map(row => row[groupKey]))];
-                        groups.forEach(group => {
-                            const groupData = data.filter(row => row[groupKey] === group);
-                            plotData.push({
-                                x: groupData.map(row => row[xKey]),
-                                y: groupData.map(row => row[measure]),
-                                type: 'bar',
-                                name: group
-                            });
-                        });
-                        layout.showlegend = true;
-                    }
-                } else {
+                const xKey = time_dimension || (dimensions.length > 0 ? dimensions[0] : null);
+                if (!xKey) {
                      biChartContainer.innerHTML = '<p class="p-4 text-center text-gray-500">Could not determine chart type. Please select a dimension.</p>';
                     return;
+                }
+                
+                layout.xaxis.title = xKey;
+
+                // Determine base plot type based on auto logic or explicit choice
+                let type = 'bar';
+                let mode = null;
+                let fill = null;
+                
+                if (chart_type === 'auto') {
+                    if (time_dimension) {
+                        type = 'scatter';
+                        mode = 'lines+markers';
+                    } else if (dimensions.length === 1) {
+                        type = 'bar';
+                    } else {
+                        type = 'bar';
+                        layout.barmode = 'group';
+                    }
+                } else {
+                    if (chart_type === 'line') { type = 'scatter'; mode = 'lines+markers'; }
+                    else if (chart_type === 'bar') { type = 'bar'; }
+                    else if (chart_type === 'pie') { type = 'pie'; }
+                    else if (chart_type === 'area') { type = 'scatter'; mode = 'lines'; fill = 'tozeroy'; }
+                    else if (chart_type === 'scatter') { type = 'scatter'; mode = 'markers'; }
+                }
+
+                // Handle Pie Chart separately as it doesn't use standard x/y
+                if (type === 'pie') {
+                    layout.title = `${measure} by ${xKey}`;
+                    plotData.push({
+                        values: data.map(row => row[measure]),
+                        labels: data.map(row => row[xKey]),
+                        type: 'pie',
+                        name: measure
+                    });
+                } 
+                // Handle simple series (1 dimension)
+                else if (dimensions.length <= 1 || (time_dimension && dimensions.length === 0)) {
+                    layout.title = `${measure} by ${xKey}`;
+                    plotData.push({
+                        x: data.map(row => row[xKey]),
+                        y: data.map(row => row[measure]),
+                        type: type,
+                        mode: mode,
+                        fill: fill,
+                        name: measure
+                    });
+                } 
+                // Handle grouped series (2+ dimensions)
+                else {
+                    const groupKey = time_dimension ? dimensions[0] : dimensions[1];
+                    layout.title = `${measure} by ${xKey}, grouped by ${groupKey}`;
+                    if (type === 'bar') layout.barmode = 'group';
+                    
+                    const groups = [...new Set(data.map(row => row[groupKey]))];
+                    groups.forEach(group => {
+                        const groupData = data.filter(row => row[groupKey] === group);
+                        plotData.push({
+                            x: groupData.map(row => row[xKey]),
+                            y: groupData.map(row => row[measure]),
+                            type: type,
+                            mode: mode,
+                            fill: fill,
+                            name: group
+                        });
+                    });
+                    layout.showlegend = true;
                 }
                 
                 Plotly.newPlot(biChartContainer, plotData, layout, {responsive: true});

@@ -1,34 +1,19 @@
-# --- Git Automation Script (exclude itself) ---
+# ============================================
+# Auto-managed by git_push.py — DO NOT EDIT
+# ============================================
+
+# --- Always Ignored ---
 git_push.py
-
-# --- Python ---
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
-*.egg-info/
-dist/
-build/
-*.egg
-
-# --- Virtual Environment ---
+uploads/
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+desktop.ini
 venv/
 env/
 .venv/
 
-# --- Uploads (user data files) ---
-uploads/
-
-# --- IDE / Editor ---
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# --- OS Files ---
-Thumbs.db
-.DS_Store
-desktop.ini
-
-# --- Byte-compiled ---
-*.pyc
