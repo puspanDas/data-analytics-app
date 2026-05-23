@@ -534,7 +534,6 @@ def train_model():
                 print("Regression problem detected (continuous numeric target)")
         
         # --- FIX: Handle categorical features in X using One-Hot Encoding ---
-        global current_categorical_encoder
         if current_feature_columns_categorical:
             print(f"Applying One-Hot Encoding to: {current_feature_columns_categorical}")
             current_categorical_encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False, drop='first')
