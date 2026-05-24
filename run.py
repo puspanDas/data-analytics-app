@@ -2,7 +2,6 @@ import webbrowser
 from threading import Timer
 import subprocess
 import os
-import atexit
 import sys
 from app import app
 
@@ -29,7 +28,9 @@ def cleanup():
             else:
                 frontend_process.terminate()
         except Exception as e:
-            print(f"Error stopping frontend: {e}")
+            pass # Suppress cleanup errors to avoid noisy exit
+        finally:
+            frontend_process = None
 
 def open_browser():
     """Opens the default web browser to the app's React URL."""
@@ -39,9 +40,6 @@ def open_browser():
 if __name__ == '__main__':
     print("Starting Data Analytics App...")
     
-    # Register cleanup for when the script exits
-    atexit.register(cleanup)
-    
     # Start the frontend dev server
     start_frontend()
     
@@ -49,8 +47,10 @@ if __name__ == '__main__':
     Timer(3.5, open_browser).start()
     
     # Run the Flask app
-    # use_reloader=False prevents the browser from opening twice during debug mode
     try:
         app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
     except KeyboardInterrupt:
         pass
+    finally:
+        cleanup()
+
