@@ -40,6 +40,23 @@ class CustomJSONEncoder(json.JSONEncoder):
             return None
         return super().default(obj)
 
+def clean_for_json(obj):
+    """Recursively clean data structures to be safely JSON serializable."""
+    if isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_for_json(item) for item in obj]
+    elif isinstance(obj, np.ndarray):
+        return [clean_for_json(item) for item in obj.tolist()]
+    elif pd.isna(obj):
+        return None
+    elif isinstance(obj, (np.integer, np.floating)):
+        return obj.item()
+    elif isinstance(obj, float) and np.isinf(obj):
+        return None
+    else:
+        return obj
+
 app = Flask(__name__)
 app.json_encoder = CustomJSONEncoder  # Use custom JSON encoder
 CORS(app)  # Enable CORS for all routes
@@ -343,20 +360,6 @@ def upload_file():
                         'any_nan_count': 0,
                         'any_nan_indices_sample': []
                     }
-                
-                def clean_for_json(obj):
-                    if isinstance(obj, dict):
-                        return {k: clean_for_json(v) for k, v in obj.items()}
-                    elif isinstance(obj, list):
-                        return [clean_for_json(item) for item in obj]
-                    elif isinstance(obj, (np.integer, np.floating)):
-                        if np.isnan(obj):
-                            return None
-                        return obj.item()
-                    elif isinstance(obj, np.ndarray):
-                        return obj.tolist()
-                    else:
-                        return obj
                 
                 # Create data info with proper NaN handling
                 info = {
@@ -664,21 +667,6 @@ def train_model():
         cm_plot_url = base64.b64encode(img.getvalue()).decode()
         plt.close()
         
-        # Handle NaN values for JSON serialization
-        def clean_for_json(obj):
-            if isinstance(obj, dict):
-                return {k: clean_for_json(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [clean_for_json(item) for item in obj]
-            elif isinstance(obj, (np.integer, np.floating)):
-                if np.isnan(obj):
-                    return None
-                return obj.item()
-            elif isinstance(obj, np.ndarray):
-                return obj.tolist()
-            else:
-                return obj
-        
         # Get feature importance if available
         feature_importance = {}
         if hasattr(current_model, 'feature_importances_'):
@@ -980,21 +968,6 @@ def data_summary():
     current_data = session['data']
     
     try:
-        # Handle NaN values for JSON serialization
-        def clean_for_json(obj):
-            if isinstance(obj, dict):
-                return {k: clean_for_json(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [clean_for_json(item) for item in obj]
-            elif isinstance(obj, (np.integer, np.floating)):
-                if np.isnan(obj):
-                    return None
-                return obj.item()
-            elif isinstance(obj, np.ndarray):
-                return obj.tolist()
-            else:
-                return obj
-        
         # Use pandas .describe() for numeric and categorical
         numeric_desc = current_data.describe(include=[np.number]).to_dict()
         categorical_desc = current_data.describe(include=['object']).to_dict()
@@ -1103,8 +1076,9 @@ def stats_analysis():
         else:
             return jsonify({'error': 'Invalid analysis_type'}), 400
 
-        # Use the custom JSON encoder to handle any remaining NaNs
-        return jsonify(json.loads(json.dumps({'success': True, 'analysis_type': analysis_type, 'result': result}, cls=CustomJSONEncoder)))
+        # Clean any remaining NaNs
+        cleaned_result = clean_for_json({'success': True, 'analysis_type': analysis_type, 'result': result})
+        return jsonify(cleaned_result)
     
     except Exception as e:
         return jsonify({'error': f'Error computing analysis: {str(e)}'}), 400
@@ -1186,9 +1160,9 @@ def aggregate_data():
         # Store the aggregated dataframe in session for exporting
         session['bi_data'] = aggregated_df
         
-        # Use the custom encoder-safe method
+        # Use the global json cleaner to handle NaNs/Infs
         result_json = aggregated_df.to_dict('records')
-        cleaned_json = json.loads(json.dumps(result_json, cls=CustomJSONEncoder))
+        cleaned_json = clean_for_json(result_json)
         
         return jsonify({'success': True, 'data': cleaned_json})
 

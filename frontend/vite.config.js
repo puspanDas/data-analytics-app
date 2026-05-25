@@ -11,6 +11,11 @@ export default defineConfig({
       '/train_model': 'http://127.0.0.1:5000',
       '/compare_models': 'http://127.0.0.1:5000',
       '/export': 'http://127.0.0.1:5000',
+      '/aggregate': 'http://127.0.0.1:5000',
+      '/predict': 'http://127.0.0.1:5000',
+      '/feature_info': 'http://127.0.0.1:5000',
+      '/data_summary': 'http://127.0.0.1:5000',
+      '/stats_analysis': 'http://127.0.0.1:5000',
     }
   }
 })
