@@ -14,6 +14,7 @@ export default defineConfig({
       '/aggregate': 'http://127.0.0.1:5000',
       '/predict': 'http://127.0.0.1:5000',
       '/feature_info': 'http://127.0.0.1:5000',
+      '/get_sample_row': 'http://127.0.0.1:5000',
       '/data_summary': 'http://127.0.0.1:5000',
       '/stats_analysis': 'http://127.0.0.1:5000',
     }

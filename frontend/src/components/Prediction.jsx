@@ -1,34 +1,85 @@
 import React, { useState, useEffect } from 'react';
 
-// Using window.Plotly and global scope is not ideal in React, but we need to rely on the backend state.
-// We can fetch feature info from the backend, but since the original relied on a previously trained model
-// in the same session, we will just present a form based on all non-target columns.
-// A more robust app would explicitly return `trained_features` from `/train_model` and pass it down.
-// Since we don't have global state, we'll just fetch `/feature_info` if we need it, or 
-// approximate it using all columns. 
-
 const Prediction = ({ dataInfo, sessionId }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [prediction, setPrediction] = useState(null);
   const [error, setError] = useState(null);
   
-  // Create a dynamic form state
+  // Dynamic form state
   const [formData, setFormData] = useState({});
 
+  // Auto-fill state
+  const [searchColumn, setSearchColumn] = useState('');
+  const [searchValue, setSearchValue] = useState('');
+  const [autoFillLoading, setAutoFillLoading] = useState(false);
+  const [autoFillError, setAutoFillError] = useState(null);
+  const [autoFillSuccess, setAutoFillSuccess] = useState(false);
+
   useEffect(() => {
-    // Initialize form with empty strings for all columns (excluding target is tricky without knowing it, 
-    // so we just show all. Users will have to fill features.)
     const initial = {};
     if (dataInfo?.columns) {
       dataInfo.columns.forEach(col => {
         initial[col] = '';
       });
+      // Default search column to first column
+      if (!searchColumn && dataInfo.columns.length > 0) {
+        setSearchColumn(dataInfo.columns[0]);
+      }
     }
     setFormData(initial);
   }, [dataInfo]);
 
   const handleChange = (col, value) => {
     setFormData(prev => ({ ...prev, [col]: value }));
+  };
+
+  const handleAutoFill = async () => {
+    if (!sessionId || !searchColumn || !searchValue.trim()) {
+      setAutoFillError('Please select a column and enter a value to search.');
+      return;
+    }
+
+    setAutoFillLoading(true);
+    setAutoFillError(null);
+    setAutoFillSuccess(false);
+
+    try {
+      const response = await fetch('/get_sample_row', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          search_column: searchColumn,
+          search_value: searchValue.trim()
+        })
+      });
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'Failed to find matching row');
+      }
+
+      // Populate the form with the returned row data
+      const row = data.row;
+      const newFormData = {};
+      if (dataInfo?.columns) {
+        dataInfo.columns.forEach(col => {
+          if (row[col] !== undefined && row[col] !== null) {
+            newFormData[col] = String(row[col]);
+          } else {
+            newFormData[col] = '';
+          }
+        });
+      }
+      setFormData(newFormData);
+      setAutoFillSuccess(true);
+      // Auto-clear the success message after 3 seconds
+      setTimeout(() => setAutoFillSuccess(false), 3000);
+    } catch (err) {
+      setAutoFillError(err.message);
+    } finally {
+      setAutoFillLoading(false);
+    }
   };
 
   const handlePredict = async (e) => {
@@ -85,6 +136,62 @@ const Prediction = ({ dataInfo, sessionId }) => {
         A model must be trained first in the "Model Training" tab. Fill in the feature values below.
       </p>
 
+      {/* ── Auto-Fill Section ── */}
+      <div className="glass-panel mb-8" style={{ borderLeft: '4px solid var(--color-primary)' }}>
+        <h3 className="text-lg mb-4" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '1.25rem' }}>⚡</span> Auto-fill from Dataset
+        </h3>
+        <p className="text-muted mb-4" style={{ fontSize: '0.875rem' }}>
+          Select a column and enter a value to automatically fill the entire form with matching data from your dataset.
+        </p>
+        <div className="grid grid-cols-3 gap-4 mb-4" style={{ alignItems: 'flex-end' }}>
+          <div className="form-group mb-0">
+            <label className="form-label">Search Column</label>
+            <select
+              className="form-select"
+              value={searchColumn}
+              onChange={e => setSearchColumn(e.target.value)}
+            >
+              {dataInfo?.columns.map(col => (
+                <option key={col} value={col}>{col}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group mb-0">
+            <label className="form-label">Value</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="e.g. USA, 12345, John..."
+              value={searchValue}
+              onChange={e => setSearchValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAutoFill(); } }}
+            />
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleAutoFill}
+            disabled={autoFillLoading}
+            style={{ height: 'fit-content' }}
+          >
+            {autoFillLoading ? 'Searching...' : '⚡ Auto-fill Form'}
+          </button>
+        </div>
+
+        {autoFillError && (
+          <div className="text-error" style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+            {autoFillError}
+          </div>
+        )}
+        {autoFillSuccess && (
+          <div className="text-success" style={{ fontSize: '0.875rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span>✓</span> Form auto-filled successfully! Review the values below and click Predict.
+          </div>
+        )}
+      </div>
+
+      {/* ── Prediction Form ── */}
       <form onSubmit={handlePredict} className="glass-panel mb-8">
         <div className="grid grid-cols-3 gap-4 mb-6">
           {dataInfo?.columns.map(col => {
@@ -126,7 +233,7 @@ const Prediction = ({ dataInfo, sessionId }) => {
         </div>
       )}
 
-      {prediction && (
+      {prediction !== null && (
         <div className="glass-panel animate-fade-in">
           <h3 className="text-xl mb-4 text-primary">Prediction Result</h3>
           <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-secondary)' }}>

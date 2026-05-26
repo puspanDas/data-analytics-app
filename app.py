@@ -11,7 +11,7 @@ import base64
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC, SVR
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder, OrdinalEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, mean_squared_error, r2_score
 import xgboost as xgb
 import lightgbm as lgb
@@ -536,19 +536,12 @@ def train_model():
                 current_target_is_classification = False
                 print("Regression problem detected (continuous numeric target)")
         
-        # --- FIX: Handle categorical features in X using One-Hot Encoding ---
+        # --- FIX: Handle categorical features in X using Ordinal Encoding ---
         if current_feature_columns_categorical:
-            print(f"Applying One-Hot Encoding to: {current_feature_columns_categorical}")
-            current_categorical_encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False, drop='first')
-            encoded_cats = current_categorical_encoder.fit_transform(X[current_feature_columns_categorical].astype(str))
+            print(f"Applying Ordinal Encoding to: {current_feature_columns_categorical}")
+            current_categorical_encoder = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
             
-            # Create a dataframe with the new encoded columns
-            encoded_cols = current_categorical_encoder.get_feature_names_out(current_feature_columns_categorical)
-            encoded_df = pd.DataFrame(encoded_cats, columns=encoded_cols, index=X.index)
-            
-            # Drop original categorical columns and concatenate encoded ones
-            X = X.drop(columns=current_feature_columns_categorical)
-            X = pd.concat([X, encoded_df], axis=1)
+            X[current_feature_columns_categorical] = current_categorical_encoder.fit_transform(X[current_feature_columns_categorical].astype(str))
         else:
             current_categorical_encoder = None
             
@@ -785,14 +778,10 @@ def compare_models():
                 label_encoder = None
                 is_classification = False
         
-        # --- FIX: Apply OneHotEncoder ---
+        # --- FIX: Apply OrdinalEncoder ---
         if len(categorical_cols) > 0:
-            comp_encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False, drop='first')
-            encoded_cats = comp_encoder.fit_transform(X[categorical_cols].astype(str))
-            encoded_cols = comp_encoder.get_feature_names_out(categorical_cols)
-            encoded_df = pd.DataFrame(encoded_cats, columns=encoded_cols, index=X.index)
-            X = X.drop(columns=categorical_cols)
-            X = pd.concat([X, encoded_df], axis=1)
+            comp_encoder = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
+            X[categorical_cols] = comp_encoder.fit_transform(X[categorical_cols].astype(str))
         
         X = X.astype(float)
         
@@ -893,13 +882,8 @@ def predict():
                 else:
                     input_df[col] = 'Unknown' # Fallback
             
-            # Apply OneHotEncoder
-            encoded_cats = current_categorical_encoder.transform(input_df[current_feature_columns_categorical])
-            encoded_cols = current_categorical_encoder.get_feature_names_out(current_feature_columns_categorical)
-            encoded_df = pd.DataFrame(encoded_cats, columns=encoded_cols, index=input_df.index)
-            
-            input_df = input_df.drop(columns=current_feature_columns_categorical)
-            input_df = pd.concat([input_df, encoded_df], axis=1)
+            # Apply OrdinalEncoder
+            input_df[current_feature_columns_categorical] = current_categorical_encoder.transform(input_df[current_feature_columns_categorical])
         
         # Align columns to match model's training columns precisely
         input_df = input_df.reindex(columns=current_feature_columns_final, fill_value=0)
@@ -958,6 +942,74 @@ def feature_info():
         'feature_columns': session['feature_columns_final'], 
         'feature_stats': session['feature_stats']
     })
+
+@app.route('/get_sample_row', methods=['POST'])
+def get_sample_row():
+    """Return the first row matching a search column/value so the prediction form can auto-fill."""
+    data = request.get_json() or {}
+    session_id = data.get('session_id')
+    session = get_session(session_id)
+    if not session or session['data'] is None:
+        return jsonify({'error': 'No data loaded or session expired'}), 400
+
+    search_column = data.get('search_column')
+    search_value = data.get('search_value', '')
+
+    if not search_column:
+        return jsonify({'error': 'search_column is required'}), 400
+
+    current_data = session['data']
+    if search_column not in current_data.columns:
+        return jsonify({'error': f"Column '{search_column}' not found in the dataset"}), 400
+
+    try:
+        col_series = current_data[search_column]
+
+        # Try to match: exact match first, then case-insensitive substring for object cols
+        if pd.api.types.is_numeric_dtype(col_series):
+            try:
+                numeric_val = float(search_value)
+                mask = col_series == numeric_val
+            except (ValueError, TypeError):
+                return jsonify({'error': f"'{search_value}' is not a valid number for column '{search_column}'"}), 400
+        elif pd.api.types.is_datetime64_any_dtype(col_series):
+            try:
+                dt_val = pd.to_datetime(search_value)
+                mask = col_series == dt_val
+            except Exception:
+                return jsonify({'error': f"'{search_value}' is not a valid date for column '{search_column}'"}), 400
+        else:
+            # String/object column – case-insensitive substring match
+            str_series = col_series.astype(str).str.strip().str.lower()
+            search_lower = str(search_value).strip().lower()
+            mask = str_series == search_lower
+            if not mask.any():
+                # Fall back to substring/contains match
+                mask = str_series.str.contains(search_lower, na=False)
+
+        if not mask.any():
+            return jsonify({'error': f"No rows found where '{search_column}' matches '{search_value}'"}), 404
+
+        # Take the first matching row
+        row = current_data.loc[mask.idxmax()]
+
+        # Convert to a JSON-friendly dict
+        row_dict = {}
+        for col_name, val in row.items():
+            if pd.isna(val):
+                row_dict[col_name] = ''
+            elif isinstance(val, (pd.Timestamp, np.datetime64)):
+                row_dict[col_name] = str(pd.Timestamp(val))
+            elif isinstance(val, (np.integer, np.floating)):
+                row_dict[col_name] = val.item()
+            else:
+                row_dict[col_name] = val
+
+        return jsonify({'success': True, 'row': row_dict})
+
+    except Exception as e:
+        print(f"Error in /get_sample_row: {str(e)}")
+        return jsonify({'error': f'Error searching dataset: {str(e)}'}), 400
 
 @app.route('/data_summary')
 def data_summary():
