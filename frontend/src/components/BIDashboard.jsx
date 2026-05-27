@@ -10,7 +10,7 @@ const BIDashboard = ({ dataInfo, sessionId }) => {
   const [aggregations, setAggregations] = useState({});
   const [chartType, setChartType] = useState('auto');
   const [timeDimension, setTimeDimension] = useState('');
-  const [timeFrequency, setTimeFrequency] = useState('M');
+  const [timeFrequency, setTimeFrequency] = useState('ME');
 
   // Multi-select handler
   const handleSelect = (e, setter) => {
@@ -235,9 +235,9 @@ const BIDashboard = ({ dataInfo, sessionId }) => {
               <select className="form-select" value={timeFrequency} onChange={e => setTimeFrequency(e.target.value)}>
                 <option value="D">Daily</option>
                 <option value="W">Weekly</option>
-                <option value="M">Monthly</option>
-                <option value="Q">Quarterly</option>
-                <option value="Y">Yearly</option>
+                <option value="ME">Monthly</option>
+                <option value="QE">Quarterly</option>
+                <option value="YE">Yearly</option>
               </select>
             </div>
           )}

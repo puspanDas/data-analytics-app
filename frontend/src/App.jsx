@@ -8,6 +8,7 @@ import Visualization from './components/Visualization';
 import ModelTraining from './components/ModelTraining';
 import ModelComparison from './components/ModelComparison';
 import Prediction from './components/Prediction';
+import DataFixBanner from './components/DataFixBanner';
 
 function App() {
   const [sessionData, setSessionData] = useState(null);
@@ -25,6 +26,16 @@ function App() {
     setSessionData(data);
     showMessage('File uploaded and analyzed successfully!');
     setActiveTab('data-overview');
+  };
+
+  const handleFixApplied = (fixData) => {
+    // Update sessionData with the fixed data_info while preserving session_id
+    setSessionData((prev) => ({
+      ...prev,
+      data_info: fixData.data_info,
+      diagnosis: fixData.diagnosis,
+    }));
+    showMessage(`Data fixed successfully! ${fixData.fixes_applied.length} fix(es) applied.`);
   };
 
   const tabs = [
@@ -68,6 +79,13 @@ function App() {
 
       {sessionData && (
         <main>
+          {/* Smart Data Fixer Banner */}
+          <DataFixBanner
+            diagnosis={sessionData.diagnosis}
+            sessionId={sessionData.session_id}
+            onFixApplied={handleFixApplied}
+          />
+
           <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
           
           <div className="mt-8">

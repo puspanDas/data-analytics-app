@@ -1,0 +1,25 @@
+2026-05-27 02:25:40,355 - INFO - [FIX] Applying auto-fix pipeline for Latest_Tech_Products_Features_and_Sales_Tracker_V2_-_Latest_Tech_Products_Features_and_Sales_Tracker_V2.csv...
+2026-05-27 02:25:40,361 - INFO - [SUCCESS] Fix complete: 1 fixes applied
+2026-05-27 02:25:40,361 - INFO -    Shape: (24, 1) -> (24, 1)
+2026-05-27 02:25:40,361 - INFO -    * Re-parsed CSV using "," delimiter (was incorrectly parsed)
+2026-05-27 02:32:39,132 - INFO - [FIX] Applying auto-fix pipeline for Latest_Tech_Products_Features_and_Sales_Tracker_V2_-_Latest_Tech_Products_Features_and_Sales_Tracker_V2.csv...
+2026-05-27 02:32:39,152 - INFO - [SUCCESS] Fix complete: 1 fixes applied
+2026-05-27 02:32:39,152 - INFO -    Shape: (24, 1) -> (24, 8)
+2026-05-27 02:32:39,152 - INFO -    * Re-parsed CSV using "," delimiter (was incorrectly parsed)
+2026-05-27 02:34:31,865 - INFO - [FIX] Applying auto-fix pipeline for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx...
+2026-05-27 02:34:31,871 - INFO - [SUCCESS] Fix complete: 0 fixes applied
+2026-05-27 02:34:31,871 - INFO -    Shape: (24, 1) -> (24, 1)
+2026-05-27 02:35:16,578 - INFO - [FIX] Applying auto-fix pipeline for Latest_Tech_Products_Features_and_Sales_Tracker_V2_-_Latest_Tech_Products_Features_and_Sales_Tracker_V2.csv...
+2026-05-27 02:35:16,590 - INFO - [SUCCESS] Fix complete: 1 fixes applied
+2026-05-27 02:35:16,590 - INFO -    Shape: (24, 1) -> (24, 8)
+2026-05-27 02:35:16,590 - INFO -    * Re-parsed CSV using "," delimiter (was incorrectly parsed)
+2026-05-27 02:35:44,247 - INFO - [FIX] Applying auto-fix pipeline for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx...
+2026-05-27 02:35:44,253 - INFO - [SUCCESS] Fix complete: 0 fixes applied
+2026-05-27 02:35:44,253 - INFO -    Shape: (24, 1) -> (24, 1)
+2026-05-27 02:40:02,164 - INFO - [FIX] Applying auto-fix pipeline for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx...
+2026-05-27 02:40:02,174 - INFO - [SUCCESS] Fix complete: 1 fixes applied
+2026-05-27 02:40:02,174 - INFO -    Shape: (24, 1) -> (24, 6)
+2026-05-27 02:40:02,174 - INFO -    * Extracted columns from single column using "," delimiter
+2026-05-27 02:48:10,651 - INFO - [FIX] Applying auto-fix pipeline for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx...
+2026-05-27 02:48:10,661 - INFO - [SUCCESS] Fix complete: 0 fixes applied
+2026-05-27 02:48:10,661 - INFO -    Shape: (24, 1) -> (24, 6)

@@ -16,9 +16,21 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 import xgboost as xgb
 import lightgbm as lgb
 import os
+import csv
 import json
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
+import logging
+from data_fixer import diagnose_data, apply_data_fixes
+from power_bi_exporter import prepare_power_bi_dataset
+
+logger = logging.getLogger('app')
+logger.setLevel(logging.INFO)
+fh = logging.FileHandler('app.log', encoding='utf-8')
+fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+if not logger.handlers:
+    logger.addHandler(fh)
+logger.propagate = False
 
 # --- Dependencies ---
 # Make sure to install all required libraries:
@@ -87,6 +99,7 @@ ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def create_visualization(data, plot_type, x_col=None, y_col=None, hue_col=None):
     """Create various types of visualizations"""
@@ -186,6 +199,13 @@ def create_visualization(data, plot_type, x_col=None, y_col=None, hue_col=None):
     
     return plot_url
 
+  # --- START: APP ROUTES ---
+
+@app.route('/ping', methods=['GET'])
+def ping_server():
+    """A simple health check route added to test the auto_test_generator.py"""
+    return jsonify({"status": "Server is up and running!", "frontend_status": "Ready"})
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -241,7 +261,8 @@ def upload_file():
         'data': None, 'model': None, 'scaler': None, 'target_encoder': None,
         'target_is_classification': False, 'feature_columns_final': None,
         'feature_columns_categorical': None, 'feature_stats': None,
-        'categorical_encoder': None, 'last_accessed': time.time()
+        'categorical_encoder': None, 'last_accessed': time.time(),
+        'raw_file_bytes': None, 'raw_filename': None, 'diagnosis': None
     }
     session = SESSIONS[session_id]
     
@@ -267,11 +288,20 @@ def upload_file():
             file.save(filepath)
             print(f"File saved to: {filepath}")  # Debug print
             
+            # Read raw bytes for Smart Data Fixer (needed for re-parsing)
+            with open(filepath, 'rb') as f:
+                raw_bytes = f.read()
+            session['raw_file_bytes'] = raw_bytes
+            session['raw_filename'] = filename
+            
             try:
                 # Read the file based on extension
                 print(f"Reading file: {filename}")  # Debug print
                 if filename.endswith('.csv'):
-                    session['data'] = pd.read_csv(filepath)
+                    try:
+                        session['data'] = pd.read_csv(filepath, encoding='utf-8')
+                    except UnicodeDecodeError:
+                        session['data'] = pd.read_csv(filepath, encoding='cp1252')
                 else:
                     # This requires 'openpyxl' (for .xlsx) or 'xlrd' (for .xls)
                     session['data'] = pd.read_excel(filepath)
@@ -281,11 +311,27 @@ def upload_file():
                 
                 print(f"Data loaded successfully: {session['data'].shape}")  # Debug print
                 
+                # --- Smart Data Fixer: Run diagnosis ---
+                try:
+                    diagnosis = diagnose_data(raw_bytes, filename, session['data'])
+                    session['diagnosis'] = diagnosis
+                    if diagnosis['has_issues']:
+                        print(f"[WARNING] Data issues detected: {diagnosis['issue_count']} issues")
+                        for issue in diagnosis['issues']:
+                            print(f"   [{issue['severity'].upper()}] {issue['description']}")
+                    else:
+                        print("[SUCCESS] No structural issues detected in data")
+                except Exception as e_diag:
+                    import traceback
+                    print(f"Warning: Diagnosis failed (non-critical): {repr(e_diag)}")
+                    traceback.print_exc()
+                    session['diagnosis'] = {'has_issues': False, 'issues': [], 'fixable': False, 'issue_count': 0, 'has_critical': False}
+                # ---
+                
                 # --- FIX: Auto-detect and convert datetime columns on upload ---
                 try:
                     for col in session['data'].columns:
-                        if session['data'][col].dtype == 'object':
-                            # Try to convert object columns to datetime
+                        if not pd.api.types.is_numeric_dtype(session['data'][col]) and not pd.api.types.is_datetime64_any_dtype(session['data'][col]):
                             session['data'][col] = pd.to_datetime(session['data'][col], errors='ignore')
                     
                     # Convert any detected datetime columns to numeric (timestamps)
@@ -392,7 +438,12 @@ def upload_file():
                 info = clean_for_json(info)
                 
                 print("Returning success response")  # Debug print
-                return jsonify({'success': True, 'data_info': info, 'session_id': session_id})
+                return jsonify({
+                    'success': True,
+                    'data_info': info,
+                    'session_id': session_id,
+                    'diagnosis': clean_for_json(session.get('diagnosis', {'has_issues': False, 'issues': [], 'fixable': False, 'issue_count': 0, 'has_critical': False}))
+                })
 
             except Exception as e:
                 print(f"Error processing data info: {str(e)}")  # Debug print
@@ -509,7 +560,7 @@ def train_model():
                     X[col] = X[col].fillna('Unknown') # Fallback if mode is empty
         
         # Handle target variable and determine problem type
-        if y.dtype == 'object':
+        if not pd.api.types.is_numeric_dtype(y):
             # Categorical target - classification problem
             y = y.fillna(y.mode().iloc[0] if not y.mode().empty else 'Unknown')
             current_target_encoder = LabelEncoder()
@@ -760,10 +811,10 @@ def compare_models():
         
         # Determine problem type
         is_classification = False
-        if y.dtype == 'object':
-            y = y.fillna(y.mode().iloc[0] if not y.mode().empty else 'Unknown')
+        if not pd.api.types.is_numeric_dtype(y):
+            y_filled = y.fillna(y.mode().iloc[0] if not y.mode().empty else 'Unknown')
             label_encoder = LabelEncoder()
-            y = label_encoder.fit_transform(y)
+            y = label_encoder.fit_transform(y_filled)
             is_classification = True
         else:
             unique_values = len(y.unique())
@@ -1156,7 +1207,7 @@ def aggregate_data():
         aggregations = data.get('aggregations', {}) # e.g., {'Sales': 'sum', 'Profit': 'mean'}
         
         time_dimension = data.get('time_dimension') # e.g., 'Order Date'
-        time_frequency = data.get('time_frequency') # e.g., 'M' (Month), 'Q' (Quarter), 'Y' (Year)
+        time_frequency = data.get('time_frequency') # e.g., 'ME' (Month End), 'QE' (Quarter End), 'YE' (Year End)
 
         if not dimensions and not time_dimension:
             return jsonify({'error': 'You must provide at least one dimension or a time dimension.'}), 400
@@ -1195,7 +1246,7 @@ def aggregate_data():
                     return jsonify({'error': f"Could not convert time dimension '{time_dimension}' to datetime: {str(e)}"}), 400
             
             if not time_frequency:
-                return jsonify({'error': "You must provide 'time_frequency' (e.g., 'M', 'Q', 'Y') with 'time_dimension'."}), 400
+                return jsonify({'error': "You must provide 'time_frequency' (e.g., 'ME', 'QE', 'YE') with 'time_dimension'."}), 400
             
             grouping_keys.append(pd.Grouper(key=time_dimension, freq=time_frequency))
         
@@ -1222,6 +1273,27 @@ def aggregate_data():
         print(f"Error in /aggregate: {str(e)}")
         return jsonify({'error': f'Error during aggregation: {str(e)}'}), 400
 # --- END: NEW POWER BI-LIKE AGGREGATION ENDPOINT ---
+
+# --- START: POWER BI DATASET EXPORT ---
+@app.route('/export_power_bi', methods=['POST'])
+def export_power_bi():
+    try:
+        data = request.get_json() or {}
+        session_id = data.get('session_id')
+        session = get_session(session_id)
+        
+        csv_data = prepare_power_bi_dataset(session)
+        
+        return io.BytesIO(csv_data.encode('utf-8')), 200, {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': 'attachment; filename="power_bi_dataset.csv"'
+        }
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error in /export_power_bi: {str(e)}")
+        return jsonify({'error': f'Failed to generate Power BI export: {str(e)}'}), 500
+# --- END: POWER BI DATASET EXPORT ---
 
 # --- START: EXPORT ENDPOINT ---
 @app.route('/export', methods=['GET'])
@@ -1279,6 +1351,135 @@ def export_data():
         )
     except Exception as e:
         return jsonify({'error': f"Error generating export: {str(e)}"}), 500
+
+# --- START: SMART DATA FIXER - FIX ENDPOINT ---
+@app.route('/fix_data', methods=['POST'])
+def fix_data():
+    """
+    One-click auto-fix endpoint.
+    Uses stored raw file bytes + diagnosis to re-parse and clean the data.
+    """
+    data = request.get_json() or {}
+    session_id = data.get('session_id')
+    session = get_session(session_id)
+    
+    if not session:
+        return jsonify({'error': 'Session expired or not found.'}), 400
+    
+    raw_bytes = session.get('raw_file_bytes')
+    filename = session.get('raw_filename')
+    diagnosis = session.get('diagnosis')
+    
+    if not raw_bytes or not filename:
+        return jsonify({'error': 'No raw file data available. Please re-upload the file.'}), 400
+    
+    if not diagnosis or not diagnosis.get('has_issues'):
+        return jsonify({'error': 'No issues detected in the data. Nothing to fix.'}), 400
+    
+    try:
+        logger.info(f"[FIX] Applying auto-fix pipeline for {filename}...")
+        
+        # Store original shape for comparison
+        original_shape = session['data'].shape if session['data'] is not None else (0, 0)
+        
+        # Apply fixes
+        fixed_df, fixes_applied = apply_data_fixes(raw_bytes, filename, diagnosis)
+        
+        # Compress the fixed dataframe
+        fixed_df = reduce_mem_usage(fixed_df)
+        
+        # Replace session data with fixed version
+        session['data'] = fixed_df
+        # Reset model state since data changed
+        session['model'] = None
+        session['scaler'] = None
+        session['target_encoder'] = None
+        session['feature_columns_final'] = None
+        
+        # Re-run diagnosis on fixed data
+        new_diagnosis = diagnose_data(raw_bytes, filename, fixed_df)
+        session['diagnosis'] = new_diagnosis
+        
+        new_shape = fixed_df.shape
+        
+        logger.info(f"[SUCCESS] Fix complete: {len(fixes_applied)} fixes applied")
+        logger.info(f"   Shape: {original_shape} -> {new_shape}")
+        for fix in fixes_applied:
+            logger.info(f"   * {fix}")
+        
+        # Build fresh data_info for the fixed data (same structure as /upload)
+        try:
+            df = fixed_df
+            object_cols = df.select_dtypes(include=['object']).columns
+            obj_empty = None
+            if len(object_cols) > 0:
+                obj_empty = df[object_cols].apply(lambda s: s.astype(str).str.strip() == '')
+            nan_mask = df.isna()
+            if obj_empty is not None:
+                obj_empty_all_cols = obj_empty.reindex(columns=df.columns, fill_value=False)
+                empty_or_nan = nan_mask | obj_empty_all_cols
+            else:
+                empty_or_nan = nan_mask
+            fully_empty_rows_mask = empty_or_nan.all(axis=1)
+            any_nan_rows_mask = nan_mask.any(axis=1)
+            
+            def sample_indices(mask, limit=50):
+                idx = df.index[mask]
+                return list(map(lambda x: int(x) if isinstance(x, (np.integer,)) else x, idx[:limit]))
+            
+            row_quality = {
+                'fully_empty_count': int(fully_empty_rows_mask.sum()),
+                'fully_empty_indices_sample': sample_indices(fully_empty_rows_mask),
+                'fully_nan_count': int(nan_mask.all(axis=1).sum()),
+                'fully_nan_indices_sample': sample_indices(nan_mask.all(axis=1)),
+                'any_nan_count': int(any_nan_rows_mask.sum()),
+                'any_nan_indices_sample': sample_indices(any_nan_rows_mask)
+            }
+        except Exception:
+            row_quality = {'fully_empty_count': 0, 'fully_empty_indices_sample': [],
+                          'fully_nan_count': 0, 'fully_nan_indices_sample': [],
+                          'any_nan_count': 0, 'any_nan_indices_sample': []}
+        
+        info = {
+            'shape': fixed_df.shape,
+            'columns': fixed_df.columns.tolist(),
+            'dtypes': fixed_df.dtypes.astype(str).to_dict(),
+            'missing_values': fixed_df.isnull().sum().to_dict(),
+            'numeric_columns': fixed_df.select_dtypes(include=[np.number]).columns.tolist(),
+            'categorical_columns': fixed_df.select_dtypes(include=['object']).columns.tolist(),
+            'first_few_rows': fixed_df.head().fillna('N/A').to_dict('records'),
+            'row_quality': row_quality
+        }
+        
+        try:
+            numeric_df = fixed_df.select_dtypes(include=[np.number])
+            numeric_stats = {}
+            for col in numeric_df.columns:
+                s = numeric_df[col]
+                numeric_stats[col] = {
+                    'mean': float(s.mean()) if s.count() > 0 else None,
+                    'max': float(s.max()) if s.count() > 0 else None
+                }
+            info['numeric_stats'] = numeric_stats
+        except Exception:
+            info['numeric_stats'] = {}
+        
+        info = clean_for_json(info)
+        
+        return jsonify({
+            'success': True,
+            'data_info': info,
+            'fixes_applied': fixes_applied,
+            'original_shape': list(original_shape),
+            'new_shape': list(new_shape),
+            'remaining_issues': clean_for_json(new_diagnosis),
+            'diagnosis': clean_for_json(new_diagnosis)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in /fix_data: {str(e)}")
+        return jsonify({'error': f'Error fixing data: {str(e)}'}), 500
+# --- END: SMART DATA FIXER - FIX ENDPOINT ---
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

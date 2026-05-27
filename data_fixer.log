@@ -1,0 +1,59 @@
+2026-05-27 02:21:18,449 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker_V2_-_Latest_Tech_Products_Features_and_Sales_Tracker_V2.csv. Cols: 1, Shape: (24, 1)
+2026-05-27 02:21:18,449 - INFO - Checking single column...
+2026-05-27 02:21:18,450 - INFO - Dominant delimiter: comma (,), count: 188, threshold: 10.0
+2026-05-27 02:21:18,450 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:25:38,152 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker_V2_-_Latest_Tech_Products_Features_and_Sales_Tracker_V2.csv. Cols: 1, Shape: (24, 1)
+2026-05-27 02:25:38,152 - INFO - Checking single column...
+2026-05-27 02:25:38,153 - INFO - Dominant delimiter: comma (,), count: 188, threshold: 10.0
+2026-05-27 02:25:38,153 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:25:40,360 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker_V2_-_Latest_Tech_Products_Features_and_Sales_Tracker_V2.csv. Cols: 1, Shape: (24, 1)
+2026-05-27 02:25:40,360 - INFO - Checking single column...
+2026-05-27 02:25:40,360 - INFO - Dominant delimiter: comma (,), count: 188, threshold: 10.0
+2026-05-27 02:25:40,360 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:32:35,412 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker_V2_-_Latest_Tech_Products_Features_and_Sales_Tracker_V2.csv. Cols: 1, Shape: (24, 1)
+2026-05-27 02:32:35,413 - INFO - Checking single column...
+2026-05-27 02:32:35,413 - INFO - Dominant delimiter: comma (,), count: 188, threshold: 10.0
+2026-05-27 02:32:35,413 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:32:39,146 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker_V2_-_Latest_Tech_Products_Features_and_Sales_Tracker_V2.csv. Cols: 8, Shape: (24, 8)
+2026-05-27 02:34:17,041 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-27 02:34:17,042 - INFO - Checking single column...
+2026-05-27 02:34:17,042 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-27 02:34:17,042 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:34:29,616 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-27 02:34:29,616 - INFO - Checking single column...
+2026-05-27 02:34:29,616 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-27 02:34:29,616 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:34:31,870 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-27 02:34:31,870 - INFO - Checking single column...
+2026-05-27 02:34:31,870 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-27 02:34:31,870 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:34:57,583 - INFO - DIAGNOSIS RUNNING for ecu_log_100.csv. Cols: 5, Shape: (100, 5)
+2026-05-27 02:35:11,313 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker_V2_-_Latest_Tech_Products_Features_and_Sales_Tracker_V2.csv. Cols: 1, Shape: (24, 1)
+2026-05-27 02:35:11,313 - INFO - Checking single column...
+2026-05-27 02:35:11,313 - INFO - Dominant delimiter: comma (,), count: 188, threshold: 10.0
+2026-05-27 02:35:11,314 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:35:16,586 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker_V2_-_Latest_Tech_Products_Features_and_Sales_Tracker_V2.csv. Cols: 8, Shape: (24, 8)
+2026-05-27 02:35:32,625 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-27 02:35:32,625 - INFO - Checking single column...
+2026-05-27 02:35:32,626 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-27 02:35:32,626 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:35:40,474 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-27 02:35:40,474 - INFO - Checking single column...
+2026-05-27 02:35:40,475 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-27 02:35:40,475 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:35:44,251 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-27 02:35:44,251 - INFO - Checking single column...
+2026-05-27 02:35:44,252 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-27 02:35:44,252 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:40:00,094 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-27 02:40:00,095 - INFO - Checking single column...
+2026-05-27 02:40:00,095 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-27 02:40:00,095 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:40:02,171 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 6, Shape: (24, 6)
+2026-05-27 02:47:47,398 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-27 02:47:47,399 - INFO - Checking single column...
+2026-05-27 02:47:47,399 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-27 02:47:47,399 - INFO - SINGLE_COLUMN issue added!
+2026-05-27 02:48:10,655 - ERROR - Universal split failed: invalid error value specified
+2026-05-27 02:48:10,657 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 6, Shape: (24, 6)
+2026-05-27 02:58:30,328 - INFO - DIAGNOSIS RUNNING for ecu_log_100.csv. Cols: 5, Shape: (100, 5)

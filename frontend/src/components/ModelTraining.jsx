@@ -8,6 +8,8 @@ const ModelTraining = ({ dataInfo, sessionId }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+  const [showPowerBIPrompt, setShowPowerBIPrompt] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Initialize selected features to true for all except target
   useEffect(() => {
@@ -66,10 +68,44 @@ const ModelTraining = ({ dataInfo, sessionId }) => {
       }
       
       setResults(data);
+      setShowPowerBIPrompt(true);
     } catch (err) {
       setError(err.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleExportPowerBI = async () => {
+    setIsExporting(true);
+    try {
+      const response = await fetch('/export_power_bi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId })
+      });
+      
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Export failed');
+      }
+      
+      // Handle file download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = 'power_bi_dataset.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      setShowPowerBIPrompt(false); // Hide after successful export
+    } catch (err) {
+      alert('Failed to export for Power BI: ' + err.message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -159,6 +195,33 @@ const ModelTraining = ({ dataInfo, sessionId }) => {
               </pre>
             </div>
           </div>
+          
+          {showPowerBIPrompt && (
+            <div className="mt-8 p-6" style={{ background: 'rgba(30, 64, 175, 0.2)', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(59, 130, 246, 0.5)' }}>
+              <div className="flex items-center gap-3 mb-3">
+                <span style={{ fontSize: '1.5rem' }}>📊</span>
+                <h4 className="text-xl font-bold" style={{ color: '#60a5fa' }}>Export for Power BI?</h4>
+              </div>
+              <p className="mb-4 text-gray-300">
+                Your model is trained! Would you like to export your cleanly formatted dataset so it can be used directly in Power BI?
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  className="btn btn-primary flex items-center gap-2" 
+                  onClick={handleExportPowerBI}
+                  disabled={isExporting}
+                >
+                  {isExporting ? 'Exporting...' : 'Yes, Export to Power BI'}
+                </button>
+                <button 
+                  className="btn btn-secondary"
+                  onClick={() => setShowPowerBIPrompt(false)}
+                >
+                  No Thanks
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
