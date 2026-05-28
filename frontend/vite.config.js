@@ -19,6 +19,8 @@ export default defineConfig({
       '/stats_analysis': 'http://127.0.0.1:5000',
       '/fix_data': 'http://127.0.0.1:5000',
       '/export_power_bi': 'http://127.0.0.1:5000',
+      '/ai_chat': 'http://127.0.0.1:5000',
     }
   }
 })
+

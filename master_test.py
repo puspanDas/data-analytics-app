@@ -98,7 +98,130 @@ class MasterTest(unittest.TestCase):
         pass # TODO: auto-generated test stub
 
     def test_aggregate_data(self):
-        pass # TODO: auto-generated test stub
+        from app import app, SESSIONS
+        import json
+        import time
+        
+        # Configure app for testing
+        app.config['TESTING'] = True
+        client = app.test_client()
+        
+        # Setup mock session with a dataframe that has dimensions only (no numeric columns)
+        session_id = 'test-session-123'
+        df = pd.DataFrame({
+            'Category': ['Electronics', 'Electronics', 'Clothing', 'Clothing', 'Clothing'],
+            'Product': ['Phone', 'Laptop', 'Shirt', 'Jeans', 'Shirt'],
+            'Status': ['In Stock', 'Out of Stock', 'In Stock', 'In Stock', 'Out of Stock']
+        })
+        
+        SESSIONS[session_id] = {
+            'data': df,
+            'last_accessed': time.time()
+        }
+        
+        # Test aggregating Categorical columns as measures with allowed aggregations (count, nunique)
+        payload = {
+            'session_id': session_id,
+            'dimensions': ['Category'],
+            'measures': ['Product', 'Status'],
+            'aggregations': {
+                'Product': 'count',
+                'Status': 'nunique'
+            }
+        }
+        
+        response = client.post('/aggregate', 
+                               data=json.dumps(payload),
+                               content_type='application/json')
+        
+        self.assertEqual(response.status_code, 200)
+        res_data = json.loads(response.data.decode('utf-8'))
+        self.assertTrue(res_data['success'])
+        self.assertEqual(len(res_data['data']), 2) # Electronics and Clothing
+        
+        # Verify Electronics values: Product count=2, Status nunique=2
+        electronics = [row for row in res_data['data'] if row['Category'] == 'Electronics'][0]
+        self.assertEqual(electronics['Product'], 2)
+        self.assertEqual(electronics['Status'], 2)
+        
+        # Verify Clothing values: Product count=3, Status nunique=2
+        clothing = [row for row in res_data['data'] if row['Category'] == 'Clothing'][0]
+        self.assertEqual(clothing['Product'], 3)
+        self.assertEqual(clothing['Status'], 2)
+
+    def test_ai_chat(self):
+        from app import app, SESSIONS
+        import json
+        import time
+        
+        app.config['TESTING'] = True
+        client = app.test_client()
+        
+        session_id = 'test-session-copilot'
+        df = pd.DataFrame({
+            'Category': ['Electronics' if i % 2 == 0 else 'Clothing' for i in range(100)],
+            'Sales': [float(i * 10) for i in range(100)],
+            'CustomerID': [f'C{100+i}' for i in range(100)] # 100 unique values
+        })
+        
+        # Test case 1: No session / No data loaded
+        response = client.post('/ai_chat',
+                               data=json.dumps({'session_id': 'invalid-session'}),
+                               content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        res_data = json.loads(response.data.decode('utf-8'))
+        self.assertTrue("haven't uploaded a dataset yet" in res_data['reply'])
+        
+        # Setup mock session
+        SESSIONS[session_id] = {
+            'data': df,
+            'last_accessed': time.time()
+        }
+        
+        # Test case 2: Data Leakage Detection
+        payload = {
+            'session_id': session_id,
+            'active_tab': 'training',
+            'message': 'please check my features',
+            'target_column': 'Sales',
+            'selected_features': ['Category', 'Sales'] # Leakage!
+        }
+        response = client.post('/ai_chat',
+                               data=json.dumps(payload),
+                               content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        res_data = json.loads(response.data.decode('utf-8'))
+        self.assertEqual(len(res_data['warnings']), 1)
+        self.assertEqual(res_data['warnings'][0]['type'], 'data-leakage')
+        
+        # Test case 3: High Cardinality Detection
+        payload = {
+            'session_id': session_id,
+            'active_tab': 'training',
+            'message': 'check high cardinality',
+            'target_column': 'Sales',
+            'selected_features': ['CustomerID'] # Cardinality: 3 unique out of 3 rows (100% unique)
+        }
+        response = client.post('/ai_chat',
+                               data=json.dumps(payload),
+                               content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        res_data = json.loads(response.data.decode('utf-8'))
+        # Should flag CustomerID as high cardinality
+        self.assertTrue(any(w['type'] == 'high-cardinality' for w in res_data['warnings']))
+        
+        # Test case 4: Natural Language Query matching
+        payload = {
+            'session_id': session_id,
+            'active_tab': 'bi-dashboard',
+            'message': 'suggest a dashboard setup'
+        }
+        response = client.post('/ai_chat',
+                               data=json.dumps(payload),
+                               content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        res_data = json.loads(response.data.decode('utf-8'))
+        self.assertTrue("BI Dashboard Guide" in res_data['reply'])
 
     def test_export_power_bi(self):
         pass # TODO: auto-generated test stub

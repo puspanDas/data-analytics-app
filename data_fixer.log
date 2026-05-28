@@ -57,3 +57,35 @@
 2026-05-27 02:48:10,655 - ERROR - Universal split failed: invalid error value specified
 2026-05-27 02:48:10,657 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 6, Shape: (24, 6)
 2026-05-27 02:58:30,328 - INFO - DIAGNOSIS RUNNING for ecu_log_100.csv. Cols: 5, Shape: (100, 5)
+2026-05-28 02:35:08,268 - INFO - DIAGNOSIS RUNNING for power_bi_dataset.csv. Cols: 5, Shape: (100, 5)
+2026-05-28 02:35:21,108 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-28 02:35:21,109 - INFO - Checking single column...
+2026-05-28 02:35:21,109 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-28 02:35:21,109 - INFO - SINGLE_COLUMN issue added!
+2026-05-28 02:35:23,308 - ERROR - Universal split failed: invalid error value specified
+2026-05-28 02:35:23,311 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 6, Shape: (24, 6)
+2026-05-28 02:43:02,400 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-28 02:43:02,400 - INFO - Checking single column...
+2026-05-28 02:43:02,401 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-28 02:43:02,401 - INFO - SINGLE_COLUMN issue added!
+2026-05-28 02:43:04,284 - ERROR - Universal split failed: invalid error value specified
+2026-05-28 02:43:04,287 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 6, Shape: (24, 6)
+2026-05-28 02:49:07,962 - INFO - DIAGNOSIS RUNNING for global_superstore_2016.xlsx. Cols: 24, Shape: (51290, 24)
+2026-05-28 02:58:47,142 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-28 02:58:47,142 - INFO - Checking single column...
+2026-05-28 02:58:47,143 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-28 02:58:47,143 - INFO - SINGLE_COLUMN issue added!
+2026-05-28 02:59:21,217 - ERROR - Universal split failed: invalid error value specified
+2026-05-28 02:59:21,220 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 6, Shape: (24, 6)
+2026-05-28 03:03:29,821 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-28 03:03:29,821 - INFO - Checking single column...
+2026-05-28 03:03:29,822 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-28 03:03:29,822 - INFO - SINGLE_COLUMN issue added!
+2026-05-28 03:03:39,118 - ERROR - Universal split failed: invalid error value specified
+2026-05-28 03:03:39,120 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 6, Shape: (24, 6)
+2026-05-28 03:08:30,029 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 1, Shape: (24, 1)
+2026-05-28 03:08:30,029 - INFO - Checking single column...
+2026-05-28 03:08:30,030 - INFO - Dominant delimiter: comma (,), count: 148, threshold: 10.0
+2026-05-28 03:08:30,030 - INFO - SINGLE_COLUMN issue added!
+2026-05-28 03:08:32,273 - ERROR - Universal split failed: invalid error value specified
+2026-05-28 03:08:32,276 - INFO - DIAGNOSIS RUNNING for Latest_Tech_Products_Features_and_Sales_Tracker.xlsx. Cols: 6, Shape: (24, 6)

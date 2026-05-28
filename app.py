@@ -108,7 +108,28 @@ def create_visualization(data, plot_type, x_col=None, y_col=None, hue_col=None):
         data = data.head(10000)
         print(f"Using first 10000 rows for visualization (dataset has {len(data)} rows)")
     
-    plt.figure(figsize=(10, 6))
+    # Set custom colors matching React app CSS variables
+    bg_color = '#0f172a'      # Deep dark slate blue
+    text_color = '#f8fafc'    # Off-white
+    muted_color = '#94a3b8'   # Slate gray
+    primary_color = '#3b82f6' # Blue
+    secondary_color = '#8b5cf6' # Violet
+    
+    # Configure Matplotlib styles globally/locally
+    plt.rcParams['text.color'] = text_color
+    plt.rcParams['axes.labelcolor'] = muted_color
+    plt.rcParams['xtick.color'] = muted_color
+    plt.rcParams['ytick.color'] = muted_color
+    
+    fig, ax = plt.subplots(figsize=(10, 6), facecolor=bg_color)
+    ax.set_facecolor(bg_color)
+    
+    # Setup grid and spine colors
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_color('rgba(255, 255, 255, 0.15)')
+    ax.spines['left'].set_color('rgba(255, 255, 255, 0.15)')
+    ax.grid(True, color='rgba(255, 255, 255, 0.06)', linestyle='--', linewidth=0.8)
     
     # --- START FIX: Add data type and column validation ---
     if x_col and x_col not in data.columns:
@@ -122,18 +143,18 @@ def create_visualization(data, plot_type, x_col=None, y_col=None, hue_col=None):
         plot_data = data[x_col].dropna()
         if plot_data.empty:
             raise ValueError(f"No valid data in '{x_col}' to plot a histogram.")
-        plt.hist(plot_data, bins=30, alpha=0.7, edgecolor='black')
-        plt.title(f'Histogram of {x_col}')
-        plt.xlabel(x_col)
-        plt.ylabel('Frequency')
+        ax.hist(plot_data, bins=30, color=primary_color, alpha=0.75, edgecolor='rgba(255, 255, 255, 0.1)')
+        ax.set_title(f'Histogram of {x_col}', color=text_color, fontsize=14, pad=15)
+        ax.set_xlabel(x_col, color=muted_color, fontsize=11)
+        ax.set_ylabel('Frequency', color=muted_color, fontsize=11)
     
     elif plot_type == 'scatter' and x_col and y_col:
         if not pd.api.types.is_numeric_dtype(data[x_col]) or not pd.api.types.is_numeric_dtype(data[y_col]):
             raise ValueError(f"Scatter plot requires two numeric columns. '{x_col}' or '{y_col}' (or both) are not numeric.")
-        plt.scatter(data[x_col], data[y_col], alpha=0.6)
-        plt.title(f'Scatter Plot: {x_col} vs {y_col}')
-        plt.xlabel(x_col)
-        plt.ylabel(y_col)
+        ax.scatter(data[x_col], data[y_col], color=primary_color, alpha=0.6, edgecolors='rgba(255, 255, 255, 0.05)')
+        ax.set_title(f'Scatter Plot: {x_col} vs {y_col}', color=text_color, fontsize=14, pad=15)
+        ax.set_xlabel(x_col, color=muted_color, fontsize=11)
+        ax.set_ylabel(y_col, color=muted_color, fontsize=11)
     
     elif plot_type == 'boxplot' and x_col:
         if not pd.api.types.is_numeric_dtype(data[x_col]):
@@ -141,61 +162,99 @@ def create_visualization(data, plot_type, x_col=None, y_col=None, hue_col=None):
         plot_data = data[x_col].dropna()
         if plot_data.empty:
             raise ValueError(f"No valid data in '{x_col}' to plot a box plot.")
-        plt.boxplot(plot_data)
-        plt.title(f'Box Plot of {x_col}')
-        plt.ylabel(x_col)
-    # --- END FIX ---
+        
+        bp = ax.boxplot(plot_data, patch_artist=True)
+        # Style the box plot
+        for box in bp['boxes']:
+            box.set(color=secondary_color, linewidth=1.5)
+            box.set(facecolor='rgba(139, 92, 246, 0.4)')
+        for whisker in bp['whiskers']:
+            whisker.set(color=muted_color, linewidth=1.5)
+        for cap in bp['caps']:
+            cap.set(color=muted_color, linewidth=1.5)
+        for median in bp['medians']:
+            median.set(color='#ec4899', linewidth=2)
+            
+        ax.set_title(f'Box Plot of {x_col}', color=text_color, fontsize=14, pad=15)
+        ax.set_ylabel(x_col, color=muted_color, fontsize=11)
     
     elif plot_type == 'correlation':
         numeric_data = data.select_dtypes(include=[np.number])
         if len(numeric_data.columns) > 1:
             corr_matrix = numeric_data.corr()
-            sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0)
-            plt.title('Correlation Matrix')
+            # Generate custom color palette for correlation heatmap
+            sns.heatmap(corr_matrix, annot=True, cmap='RdBu_r', center=0, ax=ax,
+                        cbar_kws={'label': 'Correlation Coefficient'})
+            ax.set_title('Correlation Matrix', color=text_color, fontsize=14, pad=15)
+            
+            # Format colorbar text
+            cbar = ax.collections[0].colorbar
+            cbar.ax.yaxis.set_tick_params(color=muted_color)
+            plt.setp(cbar.ax.get_yticklabels(), color=muted_color)
+            cbar.ax.yaxis.label.set_color(muted_color)
         else:
-            plt.text(0.5, 0.5, 'Not enough numeric columns for correlation', 
-                    ha='center', va='center', transform=plt.gca().transAxes)
-            plt.title('Correlation Matrix')
+            ax.text(0.5, 0.5, 'Not enough numeric columns for correlation', 
+                    ha='center', va='center', transform=ax.transAxes, color=muted_color)
+            ax.set_title('Correlation Matrix', color=text_color, fontsize=14, pad=15)
     
     elif plot_type == 'pairplot' and len(data.select_dtypes(include=[np.number]).columns) >= 2:
         numeric_data = data.select_dtypes(include=[np.number])
         if len(numeric_data.columns) > 1:
-            sns.pairplot(numeric_data.head(100))  # Limit to first 100 rows for performance
-            plt.title('Pair Plot')
+            plt.close(fig) # pairplot creates its own figures, close the default one
+            g = sns.pairplot(numeric_data.head(100), diag_kind='kde')
+            g.fig.set_facecolor(bg_color)
+            for sub_ax in g.axes.flatten():
+                if sub_ax is not None:
+                    sub_ax.set_facecolor(bg_color)
+                    sub_ax.tick_params(colors=muted_color)
+                    sub_ax.xaxis.label.set_color(muted_color)
+                    sub_ax.yaxis.label.set_color(muted_color)
+                    sub_ax.spines['bottom'].set_color('rgba(255, 255, 255, 0.15)')
+                    sub_ax.spines['left'].set_color('rgba(255, 255, 255, 0.15)')
+                    sub_ax.spines['top'].set_visible(False)
+                    sub_ax.spines['right'].set_visible(False)
+                    sub_ax.grid(True, color='rgba(255, 255, 255, 0.05)', linestyle='--')
+            g.fig.suptitle('Pair Plot', color=text_color, fontsize=14, y=1.02)
+            
+            img = io.BytesIO()
+            g.savefig(img, format='png', dpi=150, bbox_inches='tight')
+            img.seek(0)
+            plot_url = base64.b64encode(img.getvalue()).decode()
+            plt.close(g.fig)
+            return plot_url
     
     elif plot_type == 'strip':
-        # Rainbow strip plot
         try:
             if x_col and y_col:
                 if data[x_col].dropna().empty and data[y_col].dropna().empty:
                         raise ValueError(f"No valid data in '{x_col}' or '{y_col}' to plot.")
-                sns.stripplot(x=data[x_col], y=data[y_col], palette='rainbow', alpha=0.7)
-                plt.title(f'Rainbow Strip Plot: {x_col} vs {y_col}')
-                plt.xlabel(x_col)
-                plt.ylabel(y_col)
+                sns.stripplot(x=data[x_col], y=data[y_col], palette='rainbow', alpha=0.7, ax=ax)
+                ax.set_title(f'Rainbow Strip Plot: {x_col} vs {y_col}', color=text_color, fontsize=14, pad=15)
+                ax.set_xlabel(x_col, color=muted_color, fontsize=11)
+                ax.set_ylabel(y_col, color=muted_color, fontsize=11)
             elif x_col:
                 if data[x_col].dropna().empty:
                         raise ValueError(f"No valid data in '{x_col}' to plot.")
-                sns.stripplot(x=data[x_col], palette='rainbow', alpha=0.7)
-                plt.title(f'Rainbow Strip Plot of {x_col}')
-                plt.xlabel(x_col)
+                sns.stripplot(x=data[x_col], palette='rainbow', alpha=0.7, ax=ax)
+                ax.set_title(f'Rainbow Strip Plot of {x_col}', color=text_color, fontsize=14, pad=15)
+                ax.set_xlabel(x_col, color=muted_color, fontsize=11)
             else:
-                plt.text(0.5, 0.5, 'Select at least X column for strip plot',
-                         ha='center', va='center', transform=plt.gca().transAxes)
-                plt.title('Rainbow Strip Plot')
+                ax.text(0.5, 0.5, 'Select at least X column for strip plot',
+                         ha='center', va='center', transform=ax.transAxes, color=muted_color)
+                ax.set_title('Rainbow Strip Plot', color=text_color, fontsize=14, pad=15)
         except Exception as e:
-            plt.text(0.5, 0.5, f'Error creating strip plot: {str(e)}',
-                     ha='center', va='center', transform=plt.gca().transAxes)
-            plt.title('Rainbow Strip Plot')
+            ax.text(0.5, 0.5, f'Error creating strip plot: {str(e)}',
+                     ha='center', va='center', transform=ax.transAxes, color=muted_color)
+            ax.set_title('Rainbow Strip Plot', color=text_color, fontsize=14, pad=15)
     
     plt.tight_layout()
     
     # Convert plot to base64 string
     img = io.BytesIO()
-    plt.savefig(img, format='png', dpi=150, bbox_inches='tight')
+    plt.savefig(img, format='png', dpi=150, bbox_inches='tight', facecolor=bg_color)
     img.seek(0)
     plot_url = base64.b64encode(img.getvalue()).decode()
-    plt.close()
+    plt.close(fig)
     
     return plot_url
 
@@ -1481,6 +1540,178 @@ def fix_data():
         return jsonify({'error': f'Error fixing data: {str(e)}'}), 500
 # --- END: SMART DATA FIXER - FIX ENDPOINT ---
 
+@app.route('/ai_chat', methods=['POST'])
+def ai_chat():
+    """
+    AutoML AI Copilot and Advisor Endpoint.
+    Analyzes session dataset and current configuration state to return dynamic advice and warn about errors.
+    """
+    try:
+        data = request.get_json() or {}
+        session_id = data.get('session_id')
+        user_message = str(data.get('message', '')).strip().lower()
+        active_tab = data.get('active_tab', 'data-overview')
+        
+        # Selected states from UI (helpful to detect misconfigurations)
+        selected_dimensions = data.get('selected_dimensions', [])
+        selected_measures = data.get('selected_measures', [])
+        target_column = data.get('target_column', '')
+        selected_features = data.get('selected_features', [])
+        
+        session = get_session(session_id)
+        if not session or session.get('data') is None:
+            return jsonify({
+                'success': True,
+                'reply': "Hello! I'm your AI Copilot. It looks like you haven't uploaded a dataset yet. Please upload a CSV or Excel file in the 'Upload Your Data' box so I can guide you through analyzing it!",
+                'warnings': []
+            })
+            
+        df = session['data']
+        rows, cols = df.shape
+        columns_list = df.columns.tolist()
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+        
+        # 1. Proactive Data Science Checks (Warnings)
+        warnings = []
+        
+        # A. Data Leakage Check
+        if active_tab == 'training' and target_column and target_column in selected_features:
+            warnings.append({
+                'type': 'data-leakage',
+                'title': '⚠️ Data Leakage Warning',
+                'message': f"You selected the target column '{target_column}' as one of the input features. This will give the model access to the answer during training, yielding 100% artificial accuracy, but it will fail completely on new data. Please uncheck '{target_column}' from the feature list!"
+            })
+            
+        # B. High Cardinality Check
+        if active_tab == 'training':
+            for col in selected_features:
+                if col in categorical_cols:
+                    unique_cnt = df[col].nunique()
+                    if unique_cnt > 50 and (unique_cnt / rows) > 0.4:
+                        warnings.append({
+                            'type': 'high-cardinality',
+                            'title': '⚠️ High Cardinality Feature',
+                            'message': f"Feature column '{col}' has {unique_cnt} unique values ({unique_cnt / rows * 100:.1f}% unique). This resembles an ID or Name column. Training on it will cause severe overfitting. Consider unchecking '{col}'."
+                        })
+                        
+        # C. Empty/Missing Data Check
+        if active_tab == 'training':
+            high_missing_cols = []
+            for col in selected_features:
+                missing_cnt = df[col].isnull().sum()
+                if missing_cnt > 0 and (missing_cnt / rows) > 0.15:
+                    high_missing_cols.append(f"'{col}' ({missing_cnt / rows * 100:.1f}% missing)")
+            if high_missing_cols:
+                warnings.append({
+                    'type': 'missing-data',
+                    'title': '💡 Missing Values Warning',
+                    'message': f"The following features have high rates of missing values: {', '.join(high_missing_cols)}. This can degrade model accuracy. We recommend applying the auto-fix at the top using the Smart Data Fixer before training."
+                })
+                
+        # D. Time Frequency Check
+        if active_tab == 'bi-dashboard' and data.get('time_dimension') and data.get('time_frequency') == 'D':
+            time_dim = data.get('time_dimension')
+            try:
+                times = pd.to_datetime(df[time_dim].dropna())
+                if not times.empty:
+                    days_diff = (times.max() - times.min()).days
+                    if days_diff > 365:
+                        warnings.append({
+                            'type': 'high-frequency',
+                            'title': '🕒 Time Frequency Warning',
+                            'message': "Your time range spans over a year and you selected 'Daily' frequency. This might create hundreds of data points, making the chart cluttered. Consider changing the Time Frequency to 'Monthly' or 'Yearly'."
+                        })
+            except Exception:
+                pass
+
+        # 2. Intelligent NLP Reply Generation
+        reply = ""
+        
+        # Intent: Data overview / loaded dataset analysis
+        if not user_message or any(k in user_message for k in ['hello', 'hi', 'greet', 'who are you', 'help']):
+            reply = (
+                f"Hello! I am your AI Copilot, your expert guide for data analysis and AutoML prediction.<br/><br/>"
+                f"I've analyzed your loaded dataset. It contains **{rows}** rows and **{cols}** columns. "
+                f"I detected **{len(numeric_cols)}** numeric features and **{len(categorical_cols)}** categorical features.<br/><br/>"
+                f"Here are quick tips based on where you are:<br/>"
+                f"- **BI Dashboard**: Group your metrics (measures) by categories (dimensions). If you have only string dimensions, drag them to the measures column and aggregate by *COUNT* or *NUNIQUE*!<br/>"
+                f"- **Model Training**: Select what you want to predict (Target Y), check your features, and train a model. Make sure you don't select the target as a feature!"
+            )
+            
+        elif any(k in user_message for k in ['bi', 'dashboard', 'chart', 'dimension', 'measure', 'drag']):
+            sug_dims = categorical_cols[:3]
+            sug_meas = numeric_cols[:2]
+            dim_str = ", ".join([f"'{d}'" for d in sug_dims]) if sug_dims else "none"
+            meas_str = ", ".join([f"'{m}'" for m in sug_meas]) if sug_meas else "none"
+            
+            reply = (
+                f"**BI Dashboard Guide**:<br/><br/>"
+                f"1. **Dimensions**: Columns you want to group by (e.g., categories, dates). Good candidates in your data: {dim_str}.<br/>"
+                f"2. **Measures**: Columns you want to aggregate mathematically (e.g., sums, averages). Good candidates: {meas_str}.<br/><br/>"
+                f"💡 **Pro-Tip**: If you have a dimensions-only dataset (no numeric values), drag any dimension column (like product or customer name) to the **Measures** column, and change the aggregation dropdown to **COUNT** or **NUNIQUE** to see distribution counts!"
+            )
+            
+        elif any(k in user_message for k in ['model', 'train', 'target', 'feature', 'accuracy', 'leakage', 'overfit', 'algorithm']):
+            sug_targets = numeric_cols[-1:] + categorical_cols[-1:]
+            sug_target_str = sug_targets[0] if sug_targets else "None"
+            
+            reply = (
+                f"**Model Training Advice**:<br/><br/>"
+                f"- **Target Column (Y)**: This is what the model learns to predict. E.g., if you want to predict sales, choose a numeric sales column. If you want to classify status, choose a category column. A good candidate in your dataset could be **'{sug_target_str}'**.<br/>"
+                f"- **Features (X)**: These are the columns the model uses to make predictions. Uncheck any columns that are IDs, Row numbers, or name fields.<br/>"
+                f"- **Data Science Check**: Avoid **Data Leakage** (target column checked in the feature list) because it will make the model look 100% accurate during training but perform terribly in real life."
+            )
+            
+        elif any(k in user_message for k in ['predict', 'make prediction', 'input', 'new data']):
+            reply = (
+                f"**Making Predictions**:<br/><br/>"
+                f"Once you've trained a model, go to the **Make Prediction** tab.<br/>"
+                f"1. You will see a form listing all the final trained features.<br/>"
+                f"2. Fill in the values for the row you want to predict.<br/>"
+                f"3. 💡 **Shortcut**: Click the 'Auto-Fill Random Row' or search a column/value (like entering a product name) to automatically load real data from your dataset into the form, then click **Predict**!"
+            )
+            
+        elif any(k in user_message for k in ['fix', 'clean', 'null', 'nan', 'missing', 'outlier']):
+            diag = session.get('diagnosis', {})
+            issues_cnt = len(diag.get('issues', [])) if diag else 0
+            
+            if issues_cnt > 0:
+                reply = (
+                    f"**Data Cleaning Suggestions**:<br/><br/>"
+                    f"I detected **{issues_cnt}** data quality issues in your dataset. "
+                    f"You should resolve these to get accurate results:<br/>"
+                    + "".join([f"- {iss.get('description', '')}<br/>" for iss in diag.get('issues', [])[:3]]) +
+                    f"<br/>👉 Simply click the green **'Auto-Fix Data'** button in the banner at the top of your dashboard to apply standard data-science cleaning pipelines instantly!"
+                )
+            else:
+                reply = (
+                    f"**Data Cleaning Info**:<br/><br/>"
+                    f"Your data looks clean with no critical issues detected! "
+                    f"If you ever upload a dataset with missing values, duplicate rows, or incorrect date formats, "
+                    f"the AI Smart Data Fixer banner will appear to help you fix them in one click."
+                )
+        else:
+            sug_feat = [c for c in columns_list[:4]]
+            reply = (
+                f"I'm here to help you analyze your dataset with **{rows}** rows and **{cols}** columns.<br/><br/>"
+                f"If you want to train a machine learning model, suggest setting the target to one of your columns (like '{columns_list[-1]}') "
+                f"and features to: {', '.join(sug_feat)}.<br/><br/>"
+                f"Ask me about:<br/>"
+                f"- *'How to configure BI Dashboard?'*<br/>"
+                f"- *'Is there any data leakage?'*<br/>"
+                f"- *'How to predict values?'*"
+            )
+            
+        return jsonify({
+            'success': True,
+            'reply': reply,
+            'warnings': warnings
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in /ai_chat: {str(e)}")
+        return jsonify({'error': f'Error in AI Copilot: {str(e)}'}), 400
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
-

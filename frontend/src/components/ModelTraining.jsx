@@ -1,10 +1,24 @@
 import React, { useState, useEffect } from 'react';
 
-const ModelTraining = ({ dataInfo, sessionId }) => {
-  const [targetColumn, setTargetColumn] = useState('');
+const ModelTraining = ({ 
+  dataInfo, 
+  sessionId,
+  targetColumn: propsTargetColumn,
+  setTargetColumn: propsSetTargetColumn,
+  selectedFeatures: propsSelectedFeatures,
+  setSelectedFeatures: propsSetSelectedFeatures
+}) => {
+  // Lifted state fallbacks
+  const [localTargetColumn, localSetTargetColumn] = useState('');
+  const targetColumn = propsTargetColumn !== undefined ? propsTargetColumn : localTargetColumn;
+  const setTargetColumn = propsSetTargetColumn !== undefined ? propsSetTargetColumn : localSetTargetColumn;
+
+  const [localSelectedFeatures, localSetSelectedFeatures] = useState({});
+  const selectedFeatures = propsSelectedFeatures !== undefined ? propsSelectedFeatures : localSelectedFeatures;
+  const setSelectedFeatures = propsSetSelectedFeatures !== undefined ? propsSetSelectedFeatures : localSetSelectedFeatures;
+
   const [modelType, setModelType] = useState('random_forest');
   const [testSize, setTestSize] = useState(0.2);
-  const [selectedFeatures, setSelectedFeatures] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
