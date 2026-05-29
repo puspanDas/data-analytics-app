@@ -25,6 +25,9 @@ function App() {
   const [trainTarget, setTrainTarget] = useState('');
   const [trainFeatures, setTrainFeatures] = useState({});
 
+  // AI Copilot drawer state — lifted so the layout can shift
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
+
   const showMessage = (text, isError = false) => {
     setMessage({ text, isError, visible: true });
     setTimeout(() => {
@@ -58,79 +61,91 @@ function App() {
   ];
 
   return (
-    <div className="container animate-fade-in">
-      <header className="mb-8 text-center">
-        <h1 style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--color-text)' }}>
-          AutoML Analysis <span className="text-primary">&</span> Prediction
-        </h1>
-        <p className="text-muted mt-2 text-lg">
-          Upload your data to visualize, train models, and get predictions instantly.
-        </p>
-      </header>
+    <>
+      {/* Main content area — shifts left when AI drawer opens */}
+      <div
+        style={{
+          transition: 'padding-right 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
+          paddingRight: aiDrawerOpen ? '430px' : '0',
+          minHeight: '100vh',
+        }}
+      >
+        <div className="container animate-fade-in">
+          <header className="mb-8 text-center">
+            <h1 style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--color-text)' }}>
+              AutoML Analysis <span className="text-primary">&</span> Prediction
+            </h1>
+            <p className="text-muted mt-2 text-lg">
+              Upload your data to visualize, train models, and get predictions instantly.
+            </p>
+          </header>
 
-      {message.visible && (
-        <div 
-          className="glass-panel" 
-          style={{ 
-            position: 'fixed', top: '20px', right: '20px', zIndex: 50,
-            borderLeft: `4px solid var(--color-${message.isError ? 'error' : 'success'})`
-          }}
-        >
-          <p style={{ color: message.isError ? 'var(--color-error)' : 'var(--color-success)' }}>
-            {message.text}
-          </p>
+          {message.visible && (
+            <div 
+              className="glass-panel" 
+              style={{ 
+                position: 'fixed', top: '20px', right: '20px', zIndex: 50,
+                borderLeft: `4px solid var(--color-${message.isError ? 'error' : 'success'})`
+              }}
+            >
+              <p style={{ color: message.isError ? 'var(--color-error)' : 'var(--color-success)' }}>
+                {message.text}
+              </p>
+            </div>
+          )}
+
+          <div className="glass-panel mb-8">
+            <h2 className="mb-4 text-xl">1. Upload Your Data</h2>
+            <FileUpload onUploadSuccess={handleUploadSuccess} onError={showMessage} />
+          </div>
+
+          {sessionData && (
+            <main>
+              {/* Smart Data Fixer Banner */}
+              <DataFixBanner
+                diagnosis={sessionData.diagnosis}
+                sessionId={sessionData.session_id}
+                onFixApplied={handleFixApplied}
+              />
+
+              <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+              
+              <div className="mt-8">
+                {activeTab === 'data-overview' && <DataOverview dataInfo={sessionData.data_info} sessionId={sessionData.session_id} />}
+                {activeTab === 'bi-dashboard' && (
+                  <BIDashboard 
+                    dataInfo={sessionData.data_info} 
+                    sessionId={sessionData.session_id} 
+                    dimensions={biDimensions}
+                    setDimensions={setBiDimensions}
+                    measures={biMeasures}
+                    setMeasures={setBiMeasures}
+                    timeDimension={biTimeDimension}
+                    setTimeDimension={setBiTimeDimension}
+                    timeFrequency={biTimeFrequency}
+                    setTimeFrequency={setBiTimeFrequency}
+                  />
+                )}
+                {activeTab === 'visualization' && <Visualization dataInfo={sessionData.data_info} sessionId={sessionData.session_id} />}
+                {activeTab === 'training' && (
+                  <ModelTraining 
+                    dataInfo={sessionData.data_info} 
+                    sessionId={sessionData.session_id} 
+                    targetColumn={trainTarget}
+                    setTargetColumn={setTrainTarget}
+                    selectedFeatures={trainFeatures}
+                    setSelectedFeatures={setTrainFeatures}
+                  />
+                )}
+                {activeTab === 'comparison' && <ModelComparison dataInfo={sessionData.data_info} sessionId={sessionData.session_id} />}
+                {activeTab === 'prediction' && <Prediction dataInfo={sessionData.data_info} sessionId={sessionData.session_id} />}
+              </div>
+            </main>
+          )}
         </div>
-      )}
-
-      <div className="glass-panel mb-8">
-        <h2 className="mb-4 text-xl">1. Upload Your Data</h2>
-        <FileUpload onUploadSuccess={handleUploadSuccess} onError={showMessage} />
       </div>
 
-      {sessionData && (
-        <main>
-          {/* Smart Data Fixer Banner */}
-          <DataFixBanner
-            diagnosis={sessionData.diagnosis}
-            sessionId={sessionData.session_id}
-            onFixApplied={handleFixApplied}
-          />
-
-          <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-          
-          <div className="mt-8">
-            {activeTab === 'data-overview' && <DataOverview dataInfo={sessionData.data_info} sessionId={sessionData.session_id} />}
-            {activeTab === 'bi-dashboard' && (
-              <BIDashboard 
-                dataInfo={sessionData.data_info} 
-                sessionId={sessionData.session_id} 
-                dimensions={biDimensions}
-                setDimensions={setBiDimensions}
-                measures={biMeasures}
-                setMeasures={setBiMeasures}
-                timeDimension={biTimeDimension}
-                setTimeDimension={setBiTimeDimension}
-                timeFrequency={biTimeFrequency}
-                setTimeFrequency={setBiTimeFrequency}
-              />
-            )}
-            {activeTab === 'visualization' && <Visualization dataInfo={sessionData.data_info} sessionId={sessionData.session_id} />}
-            {activeTab === 'training' && (
-              <ModelTraining 
-                dataInfo={sessionData.data_info} 
-                sessionId={sessionData.session_id} 
-                targetColumn={trainTarget}
-                setTargetColumn={setTrainTarget}
-                selectedFeatures={trainFeatures}
-                setSelectedFeatures={setTrainFeatures}
-              />
-            )}
-            {activeTab === 'comparison' && <ModelComparison dataInfo={sessionData.data_info} sessionId={sessionData.session_id} />}
-            {activeTab === 'prediction' && <Prediction dataInfo={sessionData.data_info} sessionId={sessionData.session_id} />}
-          </div>
-        </main>
-      )}
-
+      {/* AI Copilot — fixed positioned, completely outside the content flow */}
       {sessionData && (
         <AICopilot
           sessionId={sessionData.session_id}
@@ -142,10 +157,13 @@ function App() {
           measures={biMeasures}
           timeDimension={biTimeDimension}
           timeFrequency={biTimeFrequency}
+          isOpen={aiDrawerOpen}
+          setIsOpen={setAiDrawerOpen}
         />
       )}
-    </div>
+    </>
   );
 }
 
 export default App;
+

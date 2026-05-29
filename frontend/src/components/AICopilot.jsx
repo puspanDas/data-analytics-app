@@ -9,9 +9,10 @@ const AICopilot = ({
   dimensions,
   measures,
   timeDimension,
-  timeFrequency
+  timeFrequency,
+  isOpen,
+  setIsOpen
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -267,11 +268,6 @@ const AICopilot = ({
 
   return (
     <div className="ai-copilot-container">
-      {/* Backdrop overlay when drawer is open */}
-      <div 
-        className={`ai-copilot-backdrop ${isOpen ? 'visible' : ''}`} 
-        onClick={() => setIsOpen(false)}
-      />
 
       {/* Floating Glowing Button */}
       <button 
@@ -308,11 +304,33 @@ const AICopilot = ({
               <span>Online &middot; Ready to assist</span>
             </div>
           </div>
-          <button className="ai-drawer-close-btn" onClick={() => setIsOpen(false)} title="Close AI Copilot" aria-label="Close AI Copilot">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setIsOpen(false); }} 
+            title="Close AI Copilot" 
+            aria-label="Close AI Copilot"
+            style={{
+              width: '44px',
+              height: '44px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '12px',
+              color: '#94a3b8',
+              fontSize: '1.4rem',
+              fontWeight: '300',
+              cursor: 'pointer',
+              flexShrink: 0,
+              zIndex: 100,
+              position: 'relative',
+              lineHeight: 1,
+              fontFamily: 'sans-serif',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.color = '#fca5a5'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#94a3b8'; }}
+          >
+            ✕
           </button>
         </div>
 

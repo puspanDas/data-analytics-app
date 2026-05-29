@@ -774,23 +774,7 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 9999;
 }
 
-/* Backdrop overlay */
-.ai-copilot-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 9998;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.4s ease;
-}
 
-.ai-copilot-backdrop.visible {
-  opacity: 1;
-  pointer-events: auto;
-}
 
 /* ---- Floating Button ---- */
 .ai-copilot-btn {
@@ -931,6 +915,7 @@ h1, h2, h3, h4, h5, h6 {
   right: 1.35rem;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.3), rgba(99, 102, 241, 0.3), transparent);
+  pointer-events: none;
 }
 
 .ai-drawer-title-container {
@@ -968,25 +953,27 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .ai-drawer-close-btn {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   color: var(--color-text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  z-index: 10;
+  position: relative;
 }
 
 .ai-drawer-close-btn:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
   color: #fca5a5;
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
 .ai-status-indicator {
